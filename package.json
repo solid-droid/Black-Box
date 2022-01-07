@@ -11,14 +11,21 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:black-box.findDocs"
+    "onCommand:black-box.findDocs",
+    "onCommand:black-box.askQuestion"
   ],
   "main": "./extension.js",
   "contributes": {
     "commands": [
       {
         "command": "black-box.findDocs",
-        "title": "BlackBox find documentation"
+        "category": "BlackBox",
+        "title": "find documentation"
+      },
+      {
+        "command": "black-box.askQuestion",
+        "category": "BlackBox",
+        "title": "Ask me a question"
       }
     ]
   },
