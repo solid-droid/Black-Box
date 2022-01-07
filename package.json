@@ -11,10 +11,18 @@
     "Other"
   ],
   "activationEvents": [
+    "*",
     "onCommand:black-box.findDocs",
-    "onCommand:black-box.askQuestion"
+    "onCommand:black-box.askQuestion",
+    "onCommand:black-box.liveDocumentation",
+    "onCommand:black-box.sendMessage",
+    "onCommand:black-box.openLiveDoc",
+    "onCommand:black-box.refreshLiveDoc"
   ],
   "main": "./extension.js",
+  "extensionDependencies": [
+    "vscode.git"
+  ],
   "contributes": {
     "commands": [
       {
@@ -26,10 +34,32 @@
         "command": "black-box.askQuestion",
         "category": "BlackBox",
         "title": "Ask me a question"
+      },
+      {
+        "command": "black-box.liveDocumentation",
+        "category": "BlackBox",
+        "title": "Open Live Documentation"
+      },
+      {
+        "command": "black-box.sendMessage",
+        "category": "BlackBox",
+        "title": "sendMessage"
+      }
+    ],
+    "keybindings": [
+      {
+          "command": "black-box.openLiveDoc",
+          "key": "ctrl+m",
+          "mac": "cmd+m"
+      },
+      {
+          "command": "black-box.refreshLiveDoc",
+          "key": "alt+m",
+          "mac": "alt+m"
       }
     ]
   },
-  "scripts": {
+    "scripts": {
     "lint": "eslint .",
     "pretest": "npm run lint",
     "test": "node ./test/runTest.js"
