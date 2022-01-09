@@ -98,7 +98,7 @@
                 /* width: calc(100% - 10px); */
                 /* height: calc(100% - 170px); */
                 display: grid;
-                grid-template-rows: 10px 1fr;
+                grid-template-rows: 20px 1fr;
                 overflow: hidden;
                 grid-gap:5px;
             }
@@ -165,6 +165,7 @@
             }
 
             .infoContent{
+                padding-left: 5px;
                 overflow: auto;
                 height: calc(100% - 20px);;
             }
@@ -247,6 +248,7 @@
                 color: gray;
                 height: 100%;
                 align-items: center;
+                padding-top: 5px;
             }
             .messageThreadTitle > .threadHeader{
                 display: flex;
@@ -263,6 +265,10 @@
             }
             .messageThreadTitle > .threadCatagory > div:hover {
                 color: rgb(80, 131, 197);
+            }
+
+            .active{
+                color: rgb(80, 131, 197) !important;
             }
         /* library css */
         .ql-container.ql-snow {
@@ -354,15 +360,15 @@
                         Info
                     </div>
                     <div class="infoCatagories">
-                        <div>
+                        <div id="helpMenu" onclick="getHelpItems()">
                             Help
                         </div> |
-                        <div>
+                        <div id="OpenAI" onclick="getOpenAI()">
                             AI description
                         </div>
                     </div>
                 </div>
-                <div class="infoContent">
+                <div class="infoContent" id="tab_help">
                     <div class="helpItem">
                         <div class="info_file" title="File : src/sdajhbsadfdsdf/asdsfsdf/asfdsfs/sdsfsdfsdsadad/asdadasd/app.html">
                             <div class="criticalIcon">
@@ -375,30 +381,9 @@
                             <button >Open</button>
                         </div>
                     </div>
-                    <div class="helpItem">
-                        <div class="info_file">
-                            <div class="criticalIcon">
-                                !
-                            </div>
-                            File : src/sdajhbsadfdsdf/asdsfsdf/asfdsfs/sdsfsdfsdsadad/asdadasd/app.html
-                        </div>
-                        <div class="infoItemBtns">
-                            <div class="solved" > Mark As Solved</div>
-                            <button >Open</button>
-                        </div>
-                    </div>
-                    <div class="helpItem">
-                        <div class="info_file">
-                            <div class="criticalIcon">
-                                !
-                            </div>
-                            File : src/sdajhbsadfdsdf/asdsfsdf/asfdsfs/sdsfsdfsdsadad/asdadasd/app.html
-                        </div>
-                        <div class="infoItemBtns">
-                            <div class="solved" > Mark As Solved</div>
-                            <button >Open</button>
-                        </div>
-                    </div>
+                </div>
+                <div class="infoContent" id="tab_AI">
+
                 </div>
             </div>
             <div id="docBox" class="doc">
@@ -407,10 +392,10 @@
                             Message Thread
                     </div>
                    <div class="threadCatagory">
-                        <div>
+                        <div id="tag_best" onclick="getBestPractices()">
                             Best Practices
                         </div> |
-                        <div>
+                        <div id="tag_doc" onclick="getDocumentation()">
                             Documention
                         </div>
                    </div>
@@ -433,41 +418,119 @@
                 <div>#best</div>
                 <div>#doc</div>
             </div>
-            <button id="chatSend">Send</button>
+            <button id="chatSend" onclick="sendMessage()">Send</button>
         </div>
       </div>
 	  
 	  <script>
+        let vscode = null;
+        let tag_best = false;
+        let tag_doc = false;
+        let help = true;
+        let OpenAI = false;
+        let quill = null;
+        try{
+            vscode = acquireVsCodeApi();
+        }catch(e){}
+
+        window.addEventListener('message', event => {
+			const data = event.data; 
+        });
+        initScreen();
+        getHelpItems();
+
+
+    function getHelpItems(){
+        $('#OpenAI').removeClass('active');
+        $('#helpMenu').addClass('active');
+        $('#tab_help').show();
+        $('#tab_AI').hide();
+        help = true;
+        OpenAI = false;
+
+    }
+
+    function getOpenAI(){
+        $('#helpMenu').removeClass('active');
+        $('#OpenAI').addClass('active');
+        $('#tab_AI').show();
+        $('#tab_help').hide();
+        help = false;
+        OpenAI = true;
+    }
+
+    function getBestPractices(){
+        $('#tag_doc').removeClass('active');
+        $('#tag_best').toggleClass('active');
+        tag_best = !tag_best;
+        tag_doc = false;
+    }
+
+    function getDocumentation(){
+        $('#tag_best').removeClass('active');
+        $('#tag_doc').toggleClass('active');
+        tag_doc = !tag_doc;
+        tag_best = false;
+    }
+
+    function initScreen(){
         let toolbarOptions = [
-        ['bold', 'italic', 'underline', 'strike'],
-        ['blockquote', 'code-block'],
-        [{ 'list': 'ordered'}, { 'list': 'bullet' }],                        
-        ];
-	    let quill = new Quill('#editor', {
+                ['bold', 'italic', 'underline', 'strike'],
+                ['blockquote', 'code-block'],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],                        
+                ];  
+	    quill = new Quill('#editor', {
                 modules: { toolbar: toolbarOptions },
                 theme: 'snow'
             });
 
-            Split(['#infoBox', '#docBox'], {
+        Split(['#infoBox', '#docBox'], {
                 direction: 'vertical',
-                minSize: 50,
+                minSize: 30,
                 maxSize: 100,
                 gutterSize: 5,
                 gutterAlign: 'center',
                 snapOffset: 0,
-                sizes: [30, 70],
-              });
+                sizes: [40, 60],
+        });
+    }
+    function clearChat(){
+        $("#chatContent").innerHTML = "";
+    }
 
+    function openFile(url){
+        vscode.postMessage({
+            command: 'openFile',
+            url: url
+        });
+    }
 
-        setInterval(() => {
-            addMessage('hello <br> hello <br> helli <br> hell <br>');
-        },2000);
-        
-        function addMessage(text){
+    function markAsResolved(url){
+        vscode.postMessage({
+            command: 'markAsResolved',
+            url: url
+        });
+    }
+
+    function sendMessage(){
+        const message = quill.root.innerHTML;
+        vscode.postMessage({
+            command: 'sendMessage',
+            message: message
+        });
+    }
+
+    function loadThread(messages) {
+            clearChat();
+            messages.forEach(element => {
+                addMessage(element.text, element.user, element.time , element.tags);
+            });
+    }
+    function addMessage(text , user , time = null , tags = null){
             const message = `
             <div class="messageItem">
                 <div class="messageHeader">
-                    Nikhil Jeby :
+                    ${user} :
                 </div>
                 <div class="messageContent">
                     ${text}
@@ -475,10 +538,11 @@
             </div>
             `;
             $('#chatContent').prepend(message);
-            // $('#chatContent').scrollTop($('#chatContent')[0].scrollHeight);
+    }
 
-            
-        }
+    function scrollDown(){
+        $('#chatContent').scrollTop($('#chatContent')[0].scrollHeight);
+    }
 
 	  </script>
   </body>

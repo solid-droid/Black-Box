@@ -39,7 +39,6 @@ async function getRepoDetails(){
 		const url = downstreamUri.replace(/^https:\/\/github.com\/(.*)\.git$/, 'https://api.github.com/repos/$1');
 		const response = await fetch(url);
 		const json = await response.json();
-		console.log(json);
 	}
 	
 }
@@ -58,21 +57,21 @@ async function updateLiveDoc(){
 		selectedContent = currOpenEditor?.document?.getText(selection);
 	}
 	if(content){
-		if(selectedContext.trim() !== ""){
+		if(selectedContent.trim() !== ""){
 			const descritption = await describeCode(selectedContent);
-		// console.log(descritption?.choices[0]?.text);
+			const text = descritption?.choices[0]?.text;
+			postDataToExtension({type:'OpenAI', content:text});
 		}
 	} else {
 		vscode.window.showErrorMessage("please select a file");
 	}
 
 }
-async function sendMessage(){
-	console.log(currentPanel);
+async function postDataToExtension(message){
 	if (!currentPanel) {
 	  return;
 	}
-	currentPanel.webview.postMessage({ command: 'refactor' });
+	currentPanel.webview.postMessage(message);
   }
 
 async function beginLiveDocs(context){
