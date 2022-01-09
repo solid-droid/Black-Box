@@ -3,61 +3,445 @@
   <head>
 	  <meta charset="UTF-8">
 	  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-	  <title>Cat Coding</title>
+	  <title>Black-Box</title>
+      <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+      <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
       <style>
+          /* width */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+  background: #f1f1f1; 
+}
+ 
+/* Handle */
+::-webkit-scrollbar-thumb {
+  background: #888; 
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+  background: #555; 
+}
+
           body{
               width: fill-available;
               height: 100vh;
               margin: 0; 
-              overflow: hidden;        
+              background-color: rgb(32, 32, 32);    
+              color: white;  
+              padding: 0 !important;
             }
             .container{
-              width: calc(100%-10px);
+              /* position: fixed;
+              top:5px;
+              left:5px; */
+              width: calc(100% - 10px);
               height: calc(100% - 10px);
               padding: 5px;
               display: grid;
               grid-gap: 5px;
               font-size: 14px;
-              grid-template-rows: 35px 120px;
+              grid-template-rows: 37px 100px;
             }
+            /* /////////////////////// */
             .help{
                 /* border: solid 1px; */
-                display: grid;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 10px;
             }
+            .help-commands{
+                color: gray;
+            }
+            .pluginTitle{
+                display: flex;
+                grid-gap: 5px;
+                align-items: baseline;
+                font-size: 15px;
+            }
+            .techDetails{
+                color:gray; 
+            }
+            .pluginTitle > div {
+                font-size: 7px;
+                color:gray;
+            }
+            /* ///////////////////////////////////// */
             .info{
-                border: solid 1px;
+                border-top: solid 1px gray;
+                border-bottom: dashed 1px gray;
+                /* border: solid 1px; */
             }
             .doc{
-                border: solid 1px;
+                /* border: solid 1px; */
+                bottom: 0;
+                /* width: calc(100% - 10px); */
+                /* height: calc(100% - 170px); */
                 display: grid;
-                grid-template-rows: 1fr 60px;
+                grid-template-rows: 10px 1fr;
+                overflow: hidden;
                 grid-gap:5px;
             }
             .chatContent{
-                border: solid 1px;
+               
+                overflow: auto;
             }
+            .chatInput{
+                height: 160px;
+            }
+            .footer{
+                display: flex;
+                justify-content: space-between;
+                height: 35px;
+                bottom: 0;
+                width: calc(100% - 10px);
+                position: absolute;
+                align-items: center;
+
+            }
+            .footer > .hashtags{
+                display: flex;
+                font-size: 10px;
+                align-items: center;
+                height: 100%;
+                color: gray;
+                grid-gap:5px;
+            }
+            #chatSend{
+                width: 70px;
+                height: 25px;
+                cursor: pointer;
+                border-radius: 5px;
+            }
+
+            .infoHeader{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 10px;
+                color: gray;
+                padding-top: 3px;
+                padding-bottom: 3px;
+                border-bottom: dashed 1px gray;
+            }
+
+            .infoHeader > .infoCatagories{
+                display: flex;
+                grid-gap: 5px;
+                padding-right: 10px;
+            }
+
+            .infoHeader > .infoCatagories > div{
+                border-bottom: solid 1px;
+                color: rgb(179, 179, 179);
+                cursor: pointer;
+            }
+            .infoHeader > .infoCatagories > div:hover {
+                color: rgb(80, 131, 197);
+            }
+
+            .infoContent{
+                overflow: auto;
+                height: 75px;
+            }
+            .infoContent > .helpItem{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 10px;
+                color: white;
+                padding:3px;
+                margin-top: 3px;
+                margin-right:10px;
+                border: solid 1px;
+                border-radius: 5px;
+                background-color: rgb(47, 47, 47);
+            }
+            .info_file{
+                height: 13px;
+                overflow: hidden;
+                word-break: break-all;
+                display: flex;
+            }
+
+            .infoItemBtns{
+                display: flex;
+                align-items: center;
+                grid-gap:5px;
+                flex-shrink: 0;
+            }
+            .infoItemBtns > .solved{
+                border-bottom: solid 1px;
+                color: rgb(179, 179, 179);
+                cursor: pointer;
+                font-size: 10px;
+            }
+            .infoItemBtns > .solved:hover {
+                color: rgb(80, 131, 197);
+            }
+            .infoItemBtns > button{
+                border-radius:5px;
+            }
+
+            /* /////////////////////////////////////////////////////// */
+
+            .chatContent{
+                display: flex;
+                flex-direction: column;
+                border-top: dashed 1px gray;
+                border-bottom: solid 1px gray;
+            }
+            .chatContent > .messageItem{
+                border: solid 1px gray;
+                margin-top: 5px;
+                overflow: hidden;
+                border-radius: 3px;
+                flex-shrink: 0;
+                padding: 5px;
+                width: calc(100% - 20px);
+                background-color: rgb(44, 44, 44);
+            }
+
+            .messageItem > .messageHeader{
+                border-bottom: solid 1px rgb(92, 92, 92);
+                font-size: 10px;
+                padding-bottom: 3px;
+            }
+            .messageItem > .messageContent{
+                height: fit-content;
+                padding-top:3px
+            }
+            .messageThreadTitle{
+                display: flex;
+                justify-content: space-between;
+                font-size: 10px;
+                color: gray;
+                height: 100%;
+                align-items: center;
+            }
+            .messageThreadTitle > .threadHeader{
+                display: flex;
+            }
+            .messageThreadTitle > .threadCatagory{
+                display: flex;
+                grid-gap: 5px;
+                padding-right: 10px;
+            }
+            .messageThreadTitle > .threadCatagory > div{
+                border-bottom: solid 1px;
+                color: rgb(179, 179, 179);
+                cursor: pointer;
+            }
+            .messageThreadTitle > .threadCatagory > div:hover {
+                color: rgb(80, 131, 197);
+            }
+        /* library css */
+        .ql-container.ql-snow {
+            height: 85px;
+        }
+
+        .ql-container.ql-snow {
+            color:black;
+            background-color: rgb(236, 236, 236);
+            border: 1px solid #515151;
+            border-bottom-right-radius: 5px;
+            border-bottom-left-radius: 5px;
+        }
+
+        .ql-toolbar.ql-snow {
+            background-color: rgb(236, 236, 236);
+            border: 1px solid #515151;
+            border-top-left-radius: 5px;
+            border-top-right-radius: 5px;
+        }
+
+        /* .ql-toolbar .ql-stroke {
+            fill: none;
+            stroke: #fff;
+        }
+
+        .ql-toolbar .ql-fill {
+            fill: #fff;
+            stroke: none;
+        }
+
+        .ql-toolbar .ql-picker {
+            color: #fff;
+        } */
+
+        .ql-snow .ql-picker-options {
+            background-color: #464646;
+        }
+
+        /* ///////////////////////////////// */
+
+        @media screen and (max-width: 380px) {
+            .ql-container.ql-snow {
+                height: 85px;
+            }
+        }
+
+        @media screen and (max-width: 400px) {
+            .help-commands{
+                display: none;
+            }
+        }
+
+        .criticalIcon{
+            color: red;
+            padding-right: 2px;
+            margin-top: -3px;
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 0px -1px 3px red;
+        }
+
       </style>
   </head>
   <body>
       <div class="container">
         <div class="help">
-            <div><strong>ALT + M :</strong> load document for selected file</div> 
-            <div><strong>Select code and ALT + M :</strong> Get OpenAI description of code</div>
+            <div class="help-appInfo">
+                <div class="pluginTitle">
+                    <strong>Black-Box</strong>
+                    <div>v1.0</div>
+                </div> 
+                <div class="techDetails">
+                    <div>
+                        slack : #black-box
+                    </div>
+                </div>
+            </div>
+            <div class="help-commands">
+                <div>Load thread for selected file &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; : <strong>Select Tab + ALT + M </strong> </div> 
+                <div>Get OpenAI description of code  &nbsp;&nbsp; : <strong>Select code + ALT + M </strong> </div>
+            </div>
+           
            </div>
            <div class="info">
-            info
+                <div class="infoHeader">
+                    <div>
+                        Info
+                    </div>
+                    <div class="infoCatagories">
+                        <div>
+                            Help
+                        </div> |
+                        <div>
+                            AI description
+                        </div>
+                    </div>
+                </div>
+                <div class="infoContent">
+                    <div class="helpItem">
+                        <div class="info_file" title="File : src/sdajhbsadfdsdf/asdsfsdf/asfdsfs/sdsfsdfsdsadad/asdadasd/app.html">
+                            <div class="criticalIcon">
+                                !
+                            </div>
+                            File : src/sdajhbsadfdsdf/asdsfsdf/asfdsfs/sdsfsdfsdsadad/asdadasd/app.html
+                        </div>
+                        <div class="infoItemBtns">
+                            <div class="solved" > Mark As Solved</div>
+                            <button >Open</button>
+                        </div>
+                    </div>
+                    <div class="helpItem">
+                        <div class="info_file">
+                            <div class="criticalIcon">
+                                !
+                            </div>
+                            File : src/sdajhbsadfdsdf/asdsfsdf/asfdsfs/sdsfsdfsdsadad/asdadasd/app.html
+                        </div>
+                        <div class="infoItemBtns">
+                            <div class="solved" > Mark As Solved</div>
+                            <button >Open</button>
+                        </div>
+                    </div>
+                    <div class="helpItem">
+                        <div class="info_file">
+                            <div class="criticalIcon">
+                                !
+                            </div>
+                            File : src/sdajhbsadfdsdf/asdsfsdf/asfdsfs/sdsfsdfsdsadad/asdadasd/app.html
+                        </div>
+                        <div class="infoItemBtns">
+                            <div class="solved" > Mark As Solved</div>
+                            <button >Open</button>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="doc">
-                <div class="chatContent"></div>
+                <div class="messageThreadTitle">
+                    <div class="threadHeader">
+                            Message Thread
+                    </div>
+                   <div class="threadCatagory">
+                        <div>
+                            Best Practices
+                        </div> |
+                        <div>
+                            Documention
+                        </div>
+                   </div>
+                </div>
+                <div id ="chatContent" class="chatContent">
+
+                </div>
                 <div class="chatInput">
-                    <textarea id="chatInput" placeholder="Type your message here..."></textarea>
+                    <div id="editor">
+                        <p>Hello World!</p>
+                        <p>Some initial <strong>bold</strong> text</p>
+                        <p><br></p>
+                      </div>
+                </div>
+                <div class="footer">
+                    <div class="hashtags">
+                        <div>#help</div>
+                        <div>#best</div>
+                        <div>#doc</div>
+                    </div>
                     <button id="chatSend">Send</button>
                 </div>
             </div>
       </div>
 	  
 	  <script>
-	  
+        let toolbarOptions = [
+        ['bold', 'italic', 'underline', 'strike'],
+        ['blockquote', 'code-block'],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],                        
+        ];
+	    let quill = new Quill('#editor', {
+                modules: { toolbar: toolbarOptions },
+                theme: 'snow'
+            });
+        // setInterval(() => {
+        //     addMessage('hello <br> hello <br> helli <br> hell <br>');
+        // },2000);
+
+        function addMessage(text){
+            const message = `
+            <div class="messageItem">
+                <div class="messageHeader">
+                    Nikhil Jeby :
+                </div>
+                <div class="messageContent">
+                    ${text}
+                </div>
+            </div>
+            `;
+            $('#chatContent').prepend(message);
+            // $('#chatContent').scrollTop($('#chatContent')[0].scrollHeight);
+
+            
+        }
 	  </script>
   </body>
   </html>

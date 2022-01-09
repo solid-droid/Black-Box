@@ -1,6 +1,8 @@
 const vscode = require('vscode');
 const fetch = require('node-fetch');
 const env = require('./apiKeys');
+const path = require('path');
+const fs = require('fs');
 const gitExtension = vscode.extensions.getExtension('vscode.git').exports;
 /**
  * @param {vscode.ExtensionContext} context
@@ -86,7 +88,7 @@ async function beginLiveDocs(context){
 		}
 	  );
 
-	  currentPanel.webview.html = getWebviewContent();
+	  currentPanel.webview.html = getWebviewContent(context);
 
 	  currentPanel.webview.onDidReceiveMessage(
         message => {
@@ -150,59 +152,9 @@ function getWebviewContent_test() {
   </html>`;
   }
 
-  function getWebviewContent() {
-	return `<!DOCTYPE html>
-	<html lang="en">
-	<head>
-		<meta charset="UTF-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>Cat Coding</title>
-		<style>
-		body{
-			width: fill-available;
-			height: 100vh;
-			margin: 0; 
-			overflow: hidden;        
-		  }
-		  .container{
-			width: calc(100%-10px);
-			height: calc(100% - 10px);
-			padding: 5px;
-			display: grid;
-			grid-gap: 5px;
-			grid-template-rows: 30px 120px;
-		  }
-			  .help{
-				  border: solid 1px;
-				  display: flex;
-				  align-items: center;
-			  }
-			  .info{
-				  border: solid 1px;
-			  }
-			  .doc{
-				  border: solid 1px;
-			  }
-		</style>
-	</head>
-	<body>
-		<div class="container">
-		  <div class="help">
-			  help
-			 </div>
-			 <div class="info">
-			  info
-			  </div>
-			  <div class="doc">
-			  doc
-			  </div>
-		</div>
-		
-		<script>
-		
-		</script>
-	</body>
-	</html>`;
+  function getWebviewContent(context) {
+	const filePath = vscode.Uri.file(path.join(context.extensionPath,'template.html'));
+	return fs.readFileSync(filePath.fsPath, 'utf8');
   }
 
 
