@@ -4,12 +4,24 @@ const env = require('./apiKeys');
 const path = require('path');
 const fs = require('fs');
 const gitExtension = vscode.extensions.getExtension('vscode.git').exports;
+const { WebClient, LogLevel } = require("@slack/web-api");
+
 /**
  * @param {vscode.ExtensionContext} context
  */
-let currentPanel = undefined;
+let currentPanel = null;
+let client  = null;
+let gitRepo = null;
+let currentThread = null;
+const comandCenter = {
+	"sendMessage": (data) => slack_sendMessage(data.message , data.channel , data.thread),
+}
+
 async function activate(context) {
 	// openAITest();
+	client = new WebClient(env.SLACK_TOKEN, {
+		//   logLevel: LogLevel.DEBUG
+		});
 	const list = await testGETdata();
 	context.subscriptions.push(vscode.commands.registerCommand(
 	'black-box.findDocs', async  () => await dropdown(list)));
@@ -31,25 +43,39 @@ async function activate(context) {
 }
 
 async function getRepoDetails(){
-	const api = gitExtension.getAPI(1);
+	await new Promise(resolve => setTimeout(resolve, 500));
+	const api = await gitExtension.getAPI(1);
 	const repo = api.repositories[0];
-	const downstreamUri = repo?.state.remotes[0].fetchUrl ?? null; 
+	const downstreamUri = repo?.state?.remotes[0]?.fetchUrl ?? null; 
 	if(downstreamUri)
 	{
-		const url = downstreamUri.replace(/^https:\/\/github.com\/(.*)\.git$/, 'https://api.github.com/repos/$1');
-		const response = await fetch(url);
-		const json = await response.json();
+		try{
+			const url = downstreamUri.replace(/^https:\/\/github.com\/(.*)\.git$/, 'https://api.github.com/repos/$1');
+			const json = await(await fetch(url)).json();
+			const channel = `${json.owner.login.toLowerCase()}-${json.name.toLowerCase()}`
+			gitRepo = {
+				name:json.name, 
+				owner:json.owner.login, 
+				channel:channel
+			};
+			postDataToExtension({
+				command:'channel', 
+				channel: `#${channel}`,
+			});
+		} catch(e){	}
+
 	}
-	
+	return null
 }
+
 
 async function updateLiveDoc(){
 
 	getRepoDetails();
-
 	let currOpenEditor = vscode.window.activeTextEditor;
 	
 	const filePath = currOpenEditor?.document?.fileName;
+	loadThread(filePath);
 	const content  = currOpenEditor?.document?.getText();
 	const selection = currOpenEditor?.selection;
 	let selectedContent = null;
@@ -58,9 +84,26 @@ async function updateLiveDoc(){
 	}
 	if(content){
 		if(selectedContent.trim() !== ""){
-			const descritption = await describeCode(selectedContent);
-			const text = descritption?.choices[0]?.text;
-			postDataToExtension({type:'OpenAI', content:text});
+			vscode.window.withProgress(
+				{
+				  location: vscode.ProgressLocation.Notification,
+				  title: 'OpenAI ',
+				  cancellable: false,
+				},
+				async (progress, token) => {
+					await progress.report({ message: ' Processing' });
+					const descritption = await describeCode(selectedContent);
+					const text = descritption?.choices[0]?.text;
+					postDataToExtension({type:'OpenAI', content:text});
+					await progress.report({ message: ' Complete' });
+					await new Promise(resolve => setTimeout(resolve, 1000));
+					if(!currentPanel){
+						await progress.report({ message: ' CTRL + M => To Open Black-Box' });
+						await new Promise(resolve => setTimeout(resolve, 2000));
+					}
+			   }
+			  )
+			
 		}
 	} else {
 		vscode.window.showErrorMessage("please select a file");
@@ -75,10 +118,11 @@ async function postDataToExtension(message){
   }
 
 async function beginLiveDocs(context){
+	getRepoDetails();
 	if (currentPanel) {
-        currentPanel.reveal(vscode.ViewColumn.One);
+        currentPanel.reveal(vscode.ViewColumn.Beside);
       } else {
-	 currentPanel = vscode.window.createWebviewPanel(
+	 	currentPanel = vscode.window.createWebviewPanel(
 		'docView1',
 		'Live Documentation',
 		vscode.ViewColumn.Beside, 
@@ -91,7 +135,7 @@ async function beginLiveDocs(context){
 
 	  currentPanel.webview.onDidReceiveMessage(
         message => {
-          console.log(message);
+			comandCenter[message.command](message.data);
         },
         undefined,
         context.subscriptions
@@ -109,49 +153,7 @@ async function beginLiveDocs(context){
 }
 
 
-
-function getWebviewContent_test() {
-	return `<!DOCTYPE html>
-  <html lang="en">
-  <head>
-	  <meta charset="UTF-8">
-	  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-	  <title>Cat Coding</title>
-  </head>
-  <body>
-	  <img src="https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif" width="300" />
-	  <h1 id="lines-of-code-counter">0</h1>
-  
-	  <script>
-	  	  const vscode = acquireVsCodeApi();
-		  const counter = document.getElementById('lines-of-code-counter');
-  
-		  let count = 0;
-		  setInterval(() => {
-			  counter.textContent = count++;
-			//   vscode.postMessage({
-			// 	  	count
-			// });
-		  }, 1000);
-  
-		  // Handle the message inside the webview
-		  window.addEventListener('message', event => {
-				console.log(event.data);
-			  const message = event.data; // The JSON data our extension sent
-  
-			  switch (message.command) {
-				  case 'refactor':
-					  count = 0;
-					  counter.textContent = count;
-					  break;
-			  }
-		  });
-	  </script>
-  </body>
-  </html>`;
-  }
-
-  function getWebviewContent(context) {
+function getWebviewContent(context) {
 	const filePath = vscode.Uri.file(path.join(context.extensionPath,'template.html'));
 	return fs.readFileSync(filePath.fsPath, 'utf8');
   }
@@ -177,16 +179,6 @@ async function askQuestion(){
 	}else{
 		vscode.window.showInformationMessage("No answer");
 	}
-}
-
-async function openAITest(){
-		const code = `
-	let a = [1,2,3,4,5];
-	a.sort((a,b) => a-b);
-	console.log(a);`
-
-	const descritption = await describeCode(code);
-  	console.log(descritption?.choices[0]?.text);
 }
 
 async function describeCode(code){
@@ -227,6 +219,176 @@ async function testGETdata(){
 		data: user
 	}));
 }
+
+
+////////////////---slack---////////////////////
+
+
+async function findChannel(name) {
+    try {
+      const result = await client.conversations.list({
+        token: env.SLACK_TOKEN,
+      });
+  
+      for (const channel of result.channels) {
+        if (channel.name === name) {
+          conversationId = channel.id;
+        return conversationId;
+        }
+      }
+    }
+    catch (error) {
+      return null;
+    }
+  }
+
+async function getHistory(channelId) {
+    try {
+        // Call the conversations.history method using WebClient
+        const result = await client.conversations.history({
+          channel: channelId,
+        });      
+        
+		return result;
+      }
+      catch (error) {
+        return null;
+      }
+}
+
+async function getThreadMessages(channelId , threadID){
+	try {
+        const replies = await client.conversations.replies({
+			channel: channelId,
+			ts:threadID,
+		});
+		return replies.messages;
+      }
+      catch (error) {
+        return null;
+      }
+}
+
+async function publishMessage(channelID, text , ts= undefined) {
+    try {
+      const result = await client.chat.postMessage({
+        token: env.SLACK_TOKEN,
+        channel: channelID,
+        text: text,
+		thread_ts: ts,
+      });
+	  return result;
+    }
+    catch (error) {
+      console.error(error);
+    }
+  }
+
+async function checkThreadMessage(channelRepo , text){
+	let rootMessages = await getHistory(channelRepo);
+	rootMessages = rootMessages.messages
+						.filter(message => message.thread_ts)
+						.map(message => ({ts : message.ts , thread_ts : message.thread_ts, text : message.text}));
+	console.log(rootMessages);
+	const thread = rootMessages.find(message => message.text === text);
+	return thread;
+}
+
+async function findThread(threadText){
+	const channelRepo = await getChannelID(gitRepo.channel);
+	let thread = await checkThreadMessage(channelRepo , threadText);
+	if(thread){
+		return thread;
+	}else{
+		//CREATE THREAD
+		const result = await publishMessage(channelRepo , threadText);
+		await publishMessage(channelRepo , 'Thread Created' , result.ts);
+		return await checkThreadMessage(channelRepo , threadText);
+	}
+}
+
+
+
+async function getChannel(){
+
+}
+
+async function createChannel(channelName) {
+    try {
+        const result = await client.conversations.create({
+          name: channelName
+        });
+		return true;
+      }
+      catch (error) {
+        return false;
+      }
+  }
+
+async function loadThread(filePath){
+	if(filePath){
+		const threadName = gitRepo.name+filePath.split(gitRepo.name)[1];
+		const displayName = '...\\'+threadName.split('\\')[threadName.split('\\').length-1];
+		currentThread = {threadName:threadName,displayName:displayName};
+		postDataToExtension({
+			command: 'thread',
+			thread: threadName,
+			displayName:displayName,
+		})
+		const thread = await findThread(threadName);
+		console.log(thread);
+	}
+}
+
+
+async function getChannelID(channel){
+	let channelRepo = await findChannel(channel);
+	if(!channelRepo){
+		await createChannelRepo(channel);
+		channelRepo = await findChannel(channel);
+	}
+	return channelRepo;
+
+}
+
+async function slack_sendMessage(message , channel = 'hackathon' , thread = null){
+	
+	const channelRepo = await getChannelID(channel);
+	if(channelRepo){
+		if(thread){
+			
+		} else{
+			vscode.window.showErrorMessage("No thread found ( To create thread => Select file Tab + Alt + M )");
+		}
+	}
+
+}
+
+async function createChannelRepo(channel){
+	const answer = await vscode.window.showInformationMessage(
+		`Slack : ${channel} channel not found` ,
+		 "Create Channel",
+		);
+	if(answer === "Create Channel"){
+		await vscode.window.withProgress(
+			{
+			  location: vscode.ProgressLocation.Notification,
+			  title: 'Slack ',
+			  cancellable: false,
+			},
+			async (progress, token) => {
+				await progress.report({ message: ' Creating Repo Channel' });
+				const result = await createChannel(channel);
+				if(result){
+					await progress.report({ message: ' Repo Channel Created :)' });
+				} else {
+					await progress.report({ message: ' Repo Channel not Created :(' });
+				}
+				await new Promise(resolve => setTimeout(resolve, 3000));
+			});
+	}
+}
+
 
 function deactivate() {}
 

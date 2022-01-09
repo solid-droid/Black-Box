@@ -342,8 +342,8 @@
                     <div>v1.0</div>
                 </div> 
                 <div class="techDetails">
-                    <div>
-                        slack : #black-box
+                    <div id="channelName">
+                        slack : need git repo
                     </div>
                 </div>
             </div>
@@ -388,8 +388,8 @@
             </div>
             <div id="docBox" class="doc">
                 <div class="messageThreadTitle">
-                    <div class="threadHeader">
-                            Message Thread
+                    <div id="threadName" class="threadHeader">
+                            Thread : N/A 
                     </div>
                    <div class="threadCatagory">
                         <div id="tag_best" onclick="getBestPractices()">
@@ -429,12 +429,21 @@
         let help = true;
         let OpenAI = false;
         let quill = null;
+        let currentThread = null;
+        let commandCenter = {
+            thread : data => {
+                currentThread = data;
+                $("#threadName").text("Thread : " + data.displayName);
+                $("#threadName").attr("title", data.thread);
+            },
+            channel: data => $("#channelName").text("slack : " + data.channel),
+        }
         try{
             vscode = acquireVsCodeApi();
         }catch(e){}
 
         window.addEventListener('message', event => {
-			const data = event.data; 
+              commandCenter[event.data.command](event.data)
         });
         initScreen();
         getHelpItems();
@@ -501,14 +510,18 @@
     function openFile(url){
         vscode.postMessage({
             command: 'openFile',
-            url: url
+            data:{
+                url: url
+            }
         });
     }
 
     function markAsResolved(url){
         vscode.postMessage({
             command: 'markAsResolved',
-            url: url
+            data:{
+                url: url
+            }
         });
     }
 
@@ -516,7 +529,9 @@
         const message = quill.root.innerHTML;
         vscode.postMessage({
             command: 'sendMessage',
-            message: message
+            data:{
+               message : message,
+            }
         });
     }
 

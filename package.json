@@ -48,18 +48,18 @@
     ],
     "keybindings": [
       {
-          "command": "black-box.openLiveDoc",
-          "key": "ctrl+m",
-          "mac": "cmd+m"
+        "command": "black-box.openLiveDoc",
+        "key": "ctrl+m",
+        "mac": "cmd+m"
       },
       {
-          "command": "black-box.refreshLiveDoc",
-          "key": "alt+m",
-          "mac": "alt+m"
+        "command": "black-box.refreshLiveDoc",
+        "key": "alt+m",
+        "mac": "alt+m"
       }
     ]
   },
-    "scripts": {
+  "scripts": {
     "lint": "eslint .",
     "pretest": "npm run lint",
     "test": "node ./test/runTest.js"
@@ -76,6 +76,8 @@
     "typescript": "^4.4.4"
   },
   "dependencies": {
+    "@slack/events-api": "^3.0.1",
+    "@slack/web-api": "^6.5.1",
     "node-fetch": "^2.6.6"
   }
 }
