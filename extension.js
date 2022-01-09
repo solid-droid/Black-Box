@@ -56,8 +56,10 @@ async function updateLiveDoc(){
 		selectedContent = currOpenEditor?.document?.getText(selection);
 	}
 	if(content){
-		const descritption = await describeCode(selectedContent);
+		if(selectedContext.trim() !== ""){
+			const descritption = await describeCode(selectedContent);
 		// console.log(descritption?.choices[0]?.text);
+		}
 	} else {
 		vscode.window.showErrorMessage("please select a file");
 	}
@@ -107,7 +109,7 @@ async function beginLiveDocs(context){
 
 
 
-function getWebviewContent() {
+function getWebviewContent_test() {
 	return `<!DOCTYPE html>
   <html lang="en">
   <head>
@@ -147,6 +149,62 @@ function getWebviewContent() {
   </body>
   </html>`;
   }
+
+  function getWebviewContent() {
+	return `<!DOCTYPE html>
+	<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Cat Coding</title>
+		<style>
+		body{
+			width: fill-available;
+			height: 100vh;
+			margin: 0; 
+			overflow: hidden;        
+		  }
+		  .container{
+			width: calc(100%-10px);
+			height: calc(100% - 10px);
+			padding: 5px;
+			display: grid;
+			grid-gap: 5px;
+			grid-template-rows: 30px 120px;
+		  }
+			  .help{
+				  border: solid 1px;
+				  display: flex;
+				  align-items: center;
+			  }
+			  .info{
+				  border: solid 1px;
+			  }
+			  .doc{
+				  border: solid 1px;
+			  }
+		</style>
+	</head>
+	<body>
+		<div class="container">
+		  <div class="help">
+			  help
+			 </div>
+			 <div class="info">
+			  info
+			  </div>
+			  <div class="doc">
+			  doc
+			  </div>
+		</div>
+		
+		<script>
+		
+		</script>
+	</body>
+	</html>`;
+  }
+
 
 async function dropdown(list){
 	const pick = await vscode.window.showQuickPick(list , {matchOnDetail: true});

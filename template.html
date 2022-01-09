@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+  <html lang="en">
+  <head>
+	  <meta charset="UTF-8">
+	  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	  <title>Cat Coding</title>
+      <style>
+          body{
+              width: fill-available;
+              height: 100vh;
+              margin: 0; 
+              overflow: hidden;        
+            }
+            .container{
+              width: calc(100%-10px);
+              height: calc(100% - 10px);
+              padding: 5px;
+              display: grid;
+              grid-gap: 5px;
+              font-size: 14px;
+              grid-template-rows: 35px 120px;
+            }
+            .help{
+                /* border: solid 1px; */
+                display: grid;
+            }
+            .info{
+                border: solid 1px;
+            }
+            .doc{
+                border: solid 1px;
+                display: grid;
+                grid-template-rows: 1fr 60px;
+                grid-gap:5px;
+            }
+            .chatContent{
+                border: solid 1px;
+            }
+      </style>
+  </head>
+  <body>
+      <div class="container">
+        <div class="help">
+            <div><strong>ALT + M :</strong> load document for selected file</div> 
+            <div><strong>Select code and ALT + M :</strong> Get OpenAI description of code</div>
+           </div>
+           <div class="info">
+            info
+            </div>
+            <div class="doc">
+                <div class="chatContent"></div>
+                <div class="chatInput">
+                    <textarea id="chatInput" placeholder="Type your message here..."></textarea>
+                    <button id="chatSend">Send</button>
+                </div>
+            </div>
+      </div>
+	  
+	  <script>
+	  
+	  </script>
+  </body>
+  </html>
