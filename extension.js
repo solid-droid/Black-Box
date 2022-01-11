@@ -16,7 +16,10 @@ let gitRepo = null;
 let currentThread = null;
 let userName = null;
 const comandCenter = {
-	"sendMessage": (data) => slack_sendMessage(data.message , data.channel , data.thread),
+	"sendMessage": data => slack_sendMessage(data.message , data.channel , data.thread),
+	"tag_best" : data => loadThread(currentThread.threadName, ['#best']),
+	"tag_doc" : data => loadThread(currentThread.threadName, ['#doc','#globalDoc']),
+	"loadAll" : data => loadThread(currentThread.threadName),
 }
 
 async function activate(context) {
@@ -278,7 +281,7 @@ async function createChannel(channelName) {
       }
   }
 
-async function loadThread(filePath){
+async function loadThread(filePath , filterTags =[]){
 	if(filePath){
 		const threadName = gitRepo.name+filePath.split(gitRepo.name)[1];
 		const displayName = '...\\'+threadName.split('\\')[threadName.split('\\').length-1];
@@ -291,18 +294,17 @@ async function loadThread(filePath){
 		const thread = await findThread(threadName);
 		currentThread['threadID'] = thread.ts;
 		const threadMessages = await getThreadMessages(thread.ts);
-		postDataToExtension({
-			command: 'message',
-			thread: thread.ts,
-			message: threadMessages.slice(1)
-								   .reverse()
-								   .map(item => {
+		let msg = threadMessages.slice(1)
+								  .reverse()
+								  .map(item => {
 									let user = item.text.split(':')[0];
-									const msg = item.text.split(':')[1];
-									const tags =[];
-									item.text.includes('#help') ? tags.push('#help') : false;
-									item.text.includes('#best') ? tags.push('#best') : false;
-									item.text.includes('#doc') ? tags.push('#doc') : false;
+									const msg = item.text.split(':').splice(1).join(':');
+									let tags = new Set();
+									item.text.includes('#help') ? tags.add('#help') : false;
+									item.text.includes('#best') ? tags.add('#best') : false;
+									item.text.includes('#doc') ? tags.add('#doc') : false;
+									item.text.includes('#globalDoc') ? tags.add('#doc') : false;
+									tags = [...tags];
 									tags.forEach(tag => user = user.replaceAll(tag,''));
 
 									return {
@@ -310,7 +312,21 @@ async function loadThread(filePath){
 										user:user,
 										tags:tags
 									}
-								}),
+								});
+		if(filterTags.length){
+			msg = msg.filter(item => {
+					for(const tag of filterTags){
+						if(item.tags.includes(tag)){
+							return true
+						}
+					};
+					return false;								
+			});
+		}
+		postDataToExtension({
+			command: 'message',
+			thread: thread.ts,
+			message: msg,
 		});
 	}
 }

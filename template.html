@@ -431,6 +431,7 @@
                 <div>#help</div>
                 <div>#best</div>
                 <div>#doc</div>
+                <div>#globalDoc</div>
             </div>
             <button id="chatSend" onclick="sendMessage()">Send</button>
         </div>
@@ -488,6 +489,11 @@
         $('#tag_best').toggleClass('active');
         tag_best = !tag_best;
         tag_doc = false;
+        if(tag_best){
+            vscode.postMessage({command: 'tag_best'});
+        }else{
+            vscode.postMessage({command: 'loadAll'});
+        }
     }
 
     function getDocumentation(){
@@ -495,6 +501,11 @@
         $('#tag_doc').toggleClass('active');
         tag_doc = !tag_doc;
         tag_best = false;
+        if(tag_doc){
+            vscode.postMessage({command: 'tag_doc'});
+        } else{
+            vscode.postMessage({command: 'loadAll'});
+        }
     }
 
     function initScreen(){
