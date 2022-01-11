@@ -12,10 +12,6 @@
   ],
   "activationEvents": [
     "*",
-    "onCommand:black-box.findDocs",
-    "onCommand:black-box.askQuestion",
-    "onCommand:black-box.liveDocumentation",
-    "onCommand:black-box.sendMessage",
     "onCommand:black-box.openLiveDoc",
     "onCommand:black-box.refreshLiveDoc"
   ],
@@ -26,24 +22,9 @@
   "contributes": {
     "commands": [
       {
-        "command": "black-box.findDocs",
-        "category": "BlackBox",
-        "title": "find documentation"
-      },
-      {
-        "command": "black-box.askQuestion",
-        "category": "BlackBox",
-        "title": "Ask me a question"
-      },
-      {
-        "command": "black-box.liveDocumentation",
+        "command": "black-box.openLiveDoc",
         "category": "BlackBox",
         "title": "Open Live Documentation"
-      },
-      {
-        "command": "black-box.sendMessage",
-        "category": "BlackBox",
-        "title": "sendMessage"
       }
     ],
     "keybindings": [

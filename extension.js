@@ -3,6 +3,7 @@ const fetch = require('node-fetch');
 const env = require('./apiKeys');
 const path = require('path');
 const fs = require('fs');
+const {HTMLToSlack, SlackToHtml} = require('./slackParser');
 const gitExtension = vscode.extensions.getExtension('vscode.git').exports;
 const { WebClient, LogLevel } = require("@slack/web-api");
 
@@ -13,6 +14,7 @@ let currentPanel = null;
 let client  = null;
 let gitRepo = null;
 let currentThread = null;
+let userName = null;
 const comandCenter = {
 	"sendMessage": (data) => slack_sendMessage(data.message , data.channel , data.thread),
 }
@@ -22,19 +24,6 @@ async function activate(context) {
 	client = new WebClient(env.SLACK_TOKEN, {
 		//   logLevel: LogLevel.DEBUG
 		});
-	const list = await testGETdata();
-	context.subscriptions.push(vscode.commands.registerCommand(
-	'black-box.findDocs', async  () => await dropdown(list)));
-
-	context.subscriptions.push(vscode.commands.registerCommand(
-	'black-box.askQuestion', async  () => await askQuestion()));
-
-	context.subscriptions.push(vscode.commands.registerCommand(
-	'black-box.liveDocumentation', async () => await beginLiveDocs(context)));
-
-	context.subscriptions.push(vscode.commands.registerCommand(
-	'black-box.sendMessage', async () => await sendMessage()));
-
 	context.subscriptions.push(vscode.commands.registerCommand(
 	'black-box.openLiveDoc', async () => await beginLiveDocs(context)));
 
@@ -159,28 +148,6 @@ function getWebviewContent(context) {
   }
 
 
-async function dropdown(list){
-	const pick = await vscode.window.showQuickPick(list , {matchOnDetail: true});
-	if(pick){
-	vscode.window.showInformationMessage(`Hello ${pick.label}`);
-	}
-}
-
-async function askQuestion(){
-	const answer = await vscode.window.showInformationMessage(
-		`How was your day` ,
-		 "good",
-		 "bad"
-		);
-	if(answer === "good"){
-		vscode.window.showInformationMessage("Good");
-	}else if(answer === "bad"){
-		vscode.window.showInformationMessage("Bad");
-	}else{
-		vscode.window.showInformationMessage("No answer");
-	}
-}
-
 async function describeCode(code){
 	process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 	const OPENAI_API_KEY = env.OPENAI_API_KEY;
@@ -208,16 +175,6 @@ async function describeCode(code){
 		  }),
 			  method: 'POST',
 		})).json();
-}
-
-async function testGETdata(){
-	process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-	const testdata = await (await fetch('http://jsonplaceholder.typicode.com/users')).json();
-	return testdata.map(user => ({
-		label: user.name,
-		detail: user.username,
-		data: user
-	}));
 }
 
 
@@ -256,10 +213,10 @@ async function getHistory(channelId) {
       }
 }
 
-async function getThreadMessages(channelId , threadID){
+async function getThreadMessages(threadID){
 	try {
         const replies = await client.conversations.replies({
-			channel: channelId,
+			channel: await getChannelID(gitRepo.channel),
 			ts:threadID,
 		});
 		return replies.messages;
@@ -269,13 +226,14 @@ async function getThreadMessages(channelId , threadID){
       }
 }
 
-async function publishMessage(channelID, text , ts= undefined) {
+async function publishMessage(channelID, text , ts= undefined , mrkdwn = true) {
     try {
       const result = await client.chat.postMessage({
         token: env.SLACK_TOKEN,
         channel: channelID,
         text: text,
 		thread_ts: ts,
+		mrkdwn: mrkdwn,
       });
 	  return result;
     }
@@ -289,7 +247,6 @@ async function checkThreadMessage(channelRepo , text){
 	rootMessages = rootMessages.messages
 						.filter(message => message.thread_ts)
 						.map(message => ({ts : message.ts , thread_ts : message.thread_ts, text : message.text}));
-	console.log(rootMessages);
 	const thread = rootMessages.find(message => message.text === text);
 	return thread;
 }
@@ -302,16 +259,12 @@ async function findThread(threadText){
 	}else{
 		//CREATE THREAD
 		const result = await publishMessage(channelRepo , threadText);
-		await publishMessage(channelRepo , 'Thread Created' , result.ts);
+		await publishMessage(channelRepo , 'Bot:Thread Created' , result.ts);
 		return await checkThreadMessage(channelRepo , threadText);
 	}
 }
 
 
-
-async function getChannel(){
-
-}
 
 async function createChannel(channelName) {
     try {
@@ -336,7 +289,30 @@ async function loadThread(filePath){
 			displayName:displayName,
 		})
 		const thread = await findThread(threadName);
-		console.log(thread);
+		currentThread['threadID'] = thread.ts;
+		const threadMessages = await getThreadMessages(thread.ts);
+		postDataToExtension({
+			command: 'message',
+			thread: thread.ts,
+			message: threadMessages.slice(1)
+								   .reverse()
+								   .map(item => {
+									let user = item.text.split(':')[0];
+									const msg = item.text.split(':')[1];
+									const tags =[];
+									item.text.includes('#help') ? tags.push('#help') : false;
+									item.text.includes('#best') ? tags.push('#best') : false;
+									item.text.includes('#doc') ? tags.push('#doc') : false;
+									console.log(item.text,tags);
+									tags.forEach(tag => user = user.replaceAll(tag,''));
+
+									return {
+										text:SlackToHtml(msg),
+										user:user,
+										tags:tags
+									}
+								}),
+		});
 	}
 }
 
@@ -351,12 +327,14 @@ async function getChannelID(channel){
 
 }
 
-async function slack_sendMessage(message , channel = 'hackathon' , thread = null){
+async function slack_sendMessage(message){
 	
-	const channelRepo = await getChannelID(channel);
+	const channelRepo = await getChannelID(gitRepo.channel);
 	if(channelRepo){
-		if(thread){
-			
+		if(currentThread){
+			const user = userName || '_user_';
+			await publishMessage(channelRepo , `${user}:${HTMLToSlack(message)}` , currentThread.threadID);
+			await loadThread(currentThread.threadName);
 		} else{
 			vscode.window.showErrorMessage("No thread found ( To create thread => Select file Tab + Alt + M )");
 		}
