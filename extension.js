@@ -303,7 +303,6 @@ async function loadThread(filePath){
 									item.text.includes('#help') ? tags.push('#help') : false;
 									item.text.includes('#best') ? tags.push('#best') : false;
 									item.text.includes('#doc') ? tags.push('#doc') : false;
-									console.log(item.text,tags);
 									tags.forEach(tag => user = user.replaceAll(tag,''));
 
 									return {
