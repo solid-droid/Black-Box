@@ -6,30 +6,68 @@ const fs = require('fs');
 const {HTMLToSlack, SlackToHtml} = require('./slackParser');
 const gitExtension = vscode.extensions.getExtension('vscode.git').exports;
 const { WebClient, LogLevel } = require("@slack/web-api");
-
+var WebSocketClient = require('websocket').client;
 /**
  * @param {vscode.ExtensionContext} context
  */
+//webview
 let currentPanel = null;
+//slack
 let client  = null;
-let gitRepo = null;
+let WSclient = null;
+//blackbox
 let currentThread = null;
 let globalDocsThread = null;
-let userName = null;
 let lastFilter = [];
+let threadBuffer = {};
+let threadIDref = {};
+//codebase
+let gitRepo = null;
+let userName = null;
+
+
+
 const comandCenter = {
 	"sendMessage": data => slack_sendMessage(data.message , data.channel , data.thread),
-	"tag_best" : data => loadThread(currentThread.threadName, ['#best']),
-	"tag_doc" : data => loadThread(currentThread.threadName, ['#doc','#globalDoc']),
-	"loadAll" : data => loadThread(currentThread.threadName, []),
+	"tag_best" : () => loadThread(currentThread.threadName, ['#best']),
+	"tag_doc" : () => loadThread(currentThread.threadName, ['#doc','#globalDoc']),
+	"loadAll" : () => loadThread(currentThread.threadName, []),
 }
 
 async function activate(context) {
 	// openAITest();
-	client = new WebClient(env.SLACK_TOKEN, {
+	client = new WebClient(env.SLACK_TOKEN ,{
 		//   logLevel: LogLevel.DEBUG
 		});
+	WSclient = new WebSocketClient();
+	const wsSocketDetails = await (await fetch('https://slack.com/api/apps.connections.open',{
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			'Authorization': `Bearer ${env.SLACK_SOCKET_TOKEN}`,
+		},
+	})).json();
 
+	WSclient.on('connect', function(connection) {
+		connection.on('message', function(message) {
+			if (message.type === 'utf8') {
+				const msg = JSON.parse(message.utf8Data)?.payload?.event || null;
+				let text = msg?.text || null;
+				let ts = msg?.thread_ts || null;
+				if(!text) {
+					ts =msg?.previous_message?.thread_ts || null;
+					text = msg?.previous_message?.text || null;
+				}
+				if(ts){
+					updateThreadBuffer(ts);
+				}
+				
+			}
+		});
+	});
+	WSclient.connect(wsSocketDetails.url);
+
+	let previousFile = null;
 	vscode.workspace.onDidOpenTextDocument(async (file) => {
 		if(!gitRepo){
 			await beginLiveDocs(context)
@@ -40,7 +78,10 @@ async function activate(context) {
 				//remove last 4 characters
 				fileName = file.fileName.substring(0, file.fileName.length - 4);
 			}
-			await updateLiveDoc(fileName);
+			if(previousFile !== fileName){
+				previousFile = fileName;
+				await updateLiveDoc(fileName);
+			}
 		}
 	})
 	context.subscriptions.push(vscode.commands.registerCommand(
@@ -51,9 +92,10 @@ async function activate(context) {
 }
 
 async function getRepoDetails(){
-	await new Promise(resolve => setTimeout(resolve, 100));
+	await new Promise(resolve => setTimeout(resolve, 200));
 	const api = await gitExtension.getAPI(1);
 	const repo = api.repositories[0];
+	// const repoName = repo.rootUri.fsPath.split('\\').slice(-1).pop();	
 	const downstreamUri = repo?.state?.remotes[0]?.fetchUrl ?? null; 
 	if(downstreamUri)
 	{
@@ -61,7 +103,7 @@ async function getRepoDetails(){
 			const url = downstreamUri.replace(/^https:\/\/github.com\/(.*)\.git$/, 'https://api.github.com/repos/$1');
 			const json = await(await fetch(url)).json();
 			const channel = `${json.owner.login.toLowerCase()}-${json.name.toLowerCase()}`
-			gitRepo = {
+				gitRepo = {
 				name:json.name, 
 				owner:json.owner.login, 
 				channel:channel
@@ -70,7 +112,11 @@ async function getRepoDetails(){
 				command:'channel', 
 				channel: `#${channel}`,
 			});
-		} catch(e){	}
+		} catch(e){
+			console.log('error with git fetch');
+			console.log(e);
+			vscode.window.showErrorMessage("Facing issue with fetching git repo details");
+		}
 
 	}
 	return null
@@ -114,7 +160,6 @@ async function OpenAIDescribe(){
 
 async function updateLiveDoc(filePath = null){
 	await new Promise(resolve => setTimeout(resolve, 100));
-	getRepoDetails();
 	let currOpenEditor = vscode.window.activeTextEditor;
 	if(!filePath){
 		filePath = currOpenEditor?.document?.fileName;
@@ -235,13 +280,17 @@ async function getHistory(channelId) {
       }
 }
 
-async function getThreadMessages(threadID){
+async function getThreadMessages(threadID , threadName , force=false){
+	if(threadBuffer[threadName].message && !force){
+	   return threadBuffer[threadName].message;
+	}
 	try {
         const replies = await client.conversations.replies({
 			channel: await getChannelID(gitRepo.channel),
 			ts:threadID,
 		});
-		return replies.messages;
+		threadBuffer[threadName]['message'] = replies.messages;
+		return threadBuffer[threadName].message;
       }
       catch (error) {
         return null;
@@ -278,22 +327,32 @@ async function updateGlobalDocsThread(rootMessages , channelRepo = gitRepo.chann
 	const thread = rootMessages.find(message => message.text === 'Global Docs');
 	if(thread){
 		globalDocsThread = thread;
+		threadBuffer['Global Docs'] = {thread};
+		threadIDref[thread.thread_ts] = 'Global Docs';
 	} else {
 		const result = await publishMessage(channelRepo , 'Global Docs');
 		await publishMessage(channelRepo , 'Bot:Thread Created' , result.ts);
 	}
 }
 
-async function findThread(threadText){
+async function findThread(threadName){
+	if(threadBuffer[threadName])
+		return threadBuffer[threadName].thread;
+
 	const channelRepo = await getChannelID(gitRepo.channel);
-	let thread = await checkThreadMessage(channelRepo , threadText);
+	let thread = await checkThreadMessage(channelRepo , threadName);
 	if(thread){
-		return thread;
+		threadBuffer[threadName] = {thread};
+		threadIDref[thread.thread_ts] = threadName;
+		return threadBuffer[threadName].thread;
 	}else{
 		//CREATE THREAD
-		const result = await publishMessage(channelRepo , threadText);
+		const result = await publishMessage(channelRepo , threadName);
 		await publishMessage(channelRepo , 'Bot:Thread Created' , result.ts);
-		return await checkThreadMessage(channelRepo , threadText);
+		thread = await checkThreadMessage(channelRepo , threadName);
+		threadBuffer[threadName] = {thread};
+		threadIDref[thread.thread_ts] = threadName;
+		return threadBuffer[threadName].thread;
 	}
 }
 
@@ -310,11 +369,20 @@ async function createChannel(channelName) {
         return false;
       }
   }
-
+async function updateThreadBuffer(threadID){
+	//updatebuffer
+	if(Object.keys(threadIDref).includes(threadID)){
+		const msg = await getThreadMessages(threadID , threadIDref[threadID] , true);
+		//current file/thread
+		if(currentThread['threadID'] === threadID){
+			updateThreadMsgOnScreen(msg , threadID);
+		}
+	}
+	
+}
 async function loadThread(filePath , filterTags = lastFilter){
 	await new Promise(resolve => setTimeout(resolve, 100));
 	lastFilter = filterTags;
-	console.log( gitRepo.name , filePath);
 	if(filePath && gitRepo){
 		const threadName = gitRepo.name+filePath.split(gitRepo.name)[1];
 		const displayName = '...\\'+threadName.split('\\')[threadName.split('\\').length-1];
@@ -326,32 +394,37 @@ async function loadThread(filePath , filterTags = lastFilter){
 		})
 		const thread = await findThread(threadName);
 		currentThread['threadID'] = thread.ts;
-		const threadMessages = await getThreadMessages(thread.ts);
-		let msg = threadMessages.slice(1)
-								.map(item => preProcessIncommingMessage(item));
-		if(filterTags.length){
-			msg = msg.filter(item => {
-					for(const tag of filterTags){
-						if(item.tags.includes(tag)){
-							return true
-						}
-					};
-					return false;								
-			});
-		}
+		const threadMessages = await getThreadMessages(thread.ts, threadName);
+		updateThreadMsgOnScreen(threadMessages , thread.ts , filterTags)
+	}
+}
 
-		if(filterTags.includes('#globalDoc')){
-			const globalThread = await await getThreadMessages(globalDocsThread.ts);
-			let globalDoc = globalThread.slice(1)
-										.map(item => preProcessIncommingMessage(item));
-			msg = [...globalDoc, ...msg];
-		}
-		postDataToExtension({
-			command: 'message',
-			thread: thread.ts,
-			message: msg,
+async function updateThreadMsgOnScreen(threadMessages , ts , filterTags = lastFilter){
+	
+	let msg = threadMessages.slice(1)
+							.map(item => preProcessIncommingMessage(item));
+	if(filterTags.length){
+		msg = msg.filter(item => {
+			for(const tag of filterTags){
+				if(item.tags.includes(tag)){
+					return true
+				}
+			};
+		return false;								
 		});
 	}
+
+	if(filterTags.includes('#globalDoc')){
+		const globalThread = await getThreadMessages(globalDocsThread.ts , 'Global Docs');
+		let globalDoc = globalThread.slice(1)
+								.map(item => preProcessIncommingMessage(item));
+		msg = [...globalDoc, ...msg.filter(item => !item.tags.includes('#globalDoc'))];
+	}
+	postDataToExtension({
+		command: 'message',
+		thread: ts,
+		message: msg,
+	});
 }
 
 function preProcessIncommingMessage(item){
