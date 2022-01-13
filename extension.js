@@ -29,15 +29,29 @@ async function activate(context) {
 	client = new WebClient(env.SLACK_TOKEN, {
 		//   logLevel: LogLevel.DEBUG
 		});
+
+	vscode.workspace.onDidOpenTextDocument(async (file) => {
+		if(!gitRepo){
+			await beginLiveDocs(context)
+		}
+		if(file.fileName){
+			let fileName = file.fileName;
+			if(file.fileName.substring(file.fileName.length - 4) === '.git') {
+				//remove last 4 characters
+				fileName = file.fileName.substring(0, file.fileName.length - 4);
+			}
+			await updateLiveDoc(fileName);
+		}
+	})
 	context.subscriptions.push(vscode.commands.registerCommand(
 	'black-box.openLiveDoc', async () => await beginLiveDocs(context)));
 
 	context.subscriptions.push(vscode.commands.registerCommand(
-	'black-box.refreshLiveDoc', async () => await updateLiveDoc()));
+	'black-box.refreshLiveDoc', async () => await OpenAIDescribe()));
 }
 
 async function getRepoDetails(){
-	await new Promise(resolve => setTimeout(resolve, 500));
+	await new Promise(resolve => setTimeout(resolve, 100));
 	const api = await gitExtension.getAPI(1);
 	const repo = api.repositories[0];
 	const downstreamUri = repo?.state?.remotes[0]?.fetchUrl ?? null; 
@@ -62,14 +76,8 @@ async function getRepoDetails(){
 	return null
 }
 
-
-async function updateLiveDoc(){
-
-	getRepoDetails();
+async function OpenAIDescribe(){
 	let currOpenEditor = vscode.window.activeTextEditor;
-	
-	const filePath = currOpenEditor?.document?.fileName;
-	loadThread(filePath);
 	const content  = currOpenEditor?.document?.getText();
 	const selection = currOpenEditor?.selection;
 	let selectedContent = null;
@@ -100,9 +108,18 @@ async function updateLiveDoc(){
 			
 		}
 	} else {
-		vscode.window.showErrorMessage("please select a file");
+		vscode.window.showErrorMessage("please select a code segment and press CTRL + M");
 	}
+}
 
+async function updateLiveDoc(filePath = null){
+	await new Promise(resolve => setTimeout(resolve, 100));
+	getRepoDetails();
+	let currOpenEditor = vscode.window.activeTextEditor;
+	if(!filePath){
+		filePath = currOpenEditor?.document?.fileName;
+	}
+	await loadThread(filePath);
 }
 async function postDataToExtension(message){
 	if (!currentPanel) {
@@ -112,7 +129,7 @@ async function postDataToExtension(message){
   }
 
 async function beginLiveDocs(context){
-	getRepoDetails();
+	await getRepoDetails();
 	if (currentPanel) {
         currentPanel.reveal(vscode.ViewColumn.Beside);
       } else {
@@ -295,8 +312,10 @@ async function createChannel(channelName) {
   }
 
 async function loadThread(filePath , filterTags = lastFilter){
+	await new Promise(resolve => setTimeout(resolve, 100));
 	lastFilter = filterTags;
-	if(filePath){
+	console.log( gitRepo.name , filePath);
+	if(filePath && gitRepo){
 		const threadName = gitRepo.name+filePath.split(gitRepo.name)[1];
 		const displayName = '...\\'+threadName.split('\\')[threadName.split('\\').length-1];
 		currentThread = {threadName:threadName,displayName:displayName};
