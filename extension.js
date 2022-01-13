@@ -14,12 +14,14 @@ let currentPanel = null;
 let client  = null;
 let gitRepo = null;
 let currentThread = null;
+let globalDocsThread = null;
 let userName = null;
+let lastFilter = [];
 const comandCenter = {
 	"sendMessage": data => slack_sendMessage(data.message , data.channel , data.thread),
 	"tag_best" : data => loadThread(currentThread.threadName, ['#best']),
 	"tag_doc" : data => loadThread(currentThread.threadName, ['#doc','#globalDoc']),
-	"loadAll" : data => loadThread(currentThread.threadName),
+	"loadAll" : data => loadThread(currentThread.threadName, []),
 }
 
 async function activate(context) {
@@ -251,7 +253,18 @@ async function checkThreadMessage(channelRepo , text){
 						.filter(message => message.thread_ts)
 						.map(message => ({ts : message.ts , thread_ts : message.thread_ts, text : message.text}));
 	const thread = rootMessages.find(message => message.text === text);
+	await updateGlobalDocsThread(rootMessages , channelRepo);	
 	return thread;
+}
+
+async function updateGlobalDocsThread(rootMessages , channelRepo = gitRepo.channel){
+	const thread = rootMessages.find(message => message.text === 'Global Docs');
+	if(thread){
+		globalDocsThread = thread;
+	} else {
+		const result = await publishMessage(channelRepo , 'Global Docs');
+		await publishMessage(channelRepo , 'Bot:Thread Created' , result.ts);
+	}
 }
 
 async function findThread(threadText){
@@ -281,7 +294,8 @@ async function createChannel(channelName) {
       }
   }
 
-async function loadThread(filePath , filterTags =[]){
+async function loadThread(filePath , filterTags = lastFilter){
+	lastFilter = filterTags;
 	if(filePath){
 		const threadName = gitRepo.name+filePath.split(gitRepo.name)[1];
 		const displayName = '...\\'+threadName.split('\\')[threadName.split('\\').length-1];
@@ -295,24 +309,7 @@ async function loadThread(filePath , filterTags =[]){
 		currentThread['threadID'] = thread.ts;
 		const threadMessages = await getThreadMessages(thread.ts);
 		let msg = threadMessages.slice(1)
-								  .reverse()
-								  .map(item => {
-									let user = item.text.split(':')[0];
-									const msg = item.text.split(':').splice(1).join(':');
-									let tags = new Set();
-									item.text.includes('#help') ? tags.add('#help') : false;
-									item.text.includes('#best') ? tags.add('#best') : false;
-									item.text.includes('#doc') ? tags.add('#doc') : false;
-									item.text.includes('#globalDoc') ? tags.add('#doc') : false;
-									tags = [...tags];
-									tags.forEach(tag => user = user.replaceAll(tag,''));
-
-									return {
-										text:SlackToHtml(msg),
-										user:user,
-										tags:tags
-									}
-								});
+								.map(item => preProcessIncommingMessage(item));
 		if(filterTags.length){
 			msg = msg.filter(item => {
 					for(const tag of filterTags){
@@ -323,6 +320,13 @@ async function loadThread(filePath , filterTags =[]){
 					return false;								
 			});
 		}
+
+		if(filterTags.includes('#globalDoc')){
+			const globalThread = await await getThreadMessages(globalDocsThread.ts);
+			let globalDoc = globalThread.slice(1)
+										.map(item => preProcessIncommingMessage(item));
+			msg = [...globalDoc, ...msg];
+		}
 		postDataToExtension({
 			command: 'message',
 			thread: thread.ts,
@@ -331,6 +335,23 @@ async function loadThread(filePath , filterTags =[]){
 	}
 }
 
+function preProcessIncommingMessage(item){
+	let user = item.text.split(':')[0];
+	const msg = item.text.split(':').splice(1).join(':');
+	let tags = new Set();
+	item.text.includes('#help') ? tags.add('#help') : false;
+	item.text.includes('#best') ? tags.add('#best') : false;
+	item.text.includes('#doc') ? tags.add('#doc') : false;
+	item.text.includes('#globalDoc') ? tags.add('#doc') : false;
+	tags = [...tags];
+	tags.forEach(tag => user = user.replaceAll(tag,''));
+
+	return {
+		text:SlackToHtml(msg),
+		user:user,
+		tags:tags
+	}
+}
 
 async function getChannelID(channel){
 	let channelRepo = await findChannel(channel);
@@ -349,6 +370,9 @@ async function slack_sendMessage(message){
 		if(currentThread){
 			const user = userName || '_user_';
 			await publishMessage(channelRepo , `${user}:${HTMLToSlack(message)}` , currentThread.threadID);
+			if(message.includes('#globalDoc')){
+				await publishMessage(channelRepo , `${user}:${HTMLToSlack(message)}` , globalDocsThread.ts);
+			}
 			await loadThread(currentThread.threadName);
 		} else{
 			vscode.window.showErrorMessage("No thread found ( To create thread => Select file Tab + Alt + M )");
