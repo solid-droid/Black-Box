@@ -38,7 +38,33 @@
         "key": "alt+m",
         "mac": "alt+m"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Black Box",
+      "type": "object",
+      "properties": {
+        "black-box.OPENAI_API_KEY": {
+          "type": "string",
+          "default": "",
+          "description": "OPENAI codex API key"
+        },
+        "black-box.SLACK_SOCKET_TOKEN": {
+          "type": "string",
+          "default": "",
+          "description": "Slack App Level Token (looks like => xapp-...)"
+        },
+        "black-box.SLACK_TOKEN": {
+          "type": "string",
+          "default": "",
+          "description": "Slack Bot User OAuth Token (looks like => xoxb-...)"
+        },
+        "black-box.SLACK_USER_NAME": {
+          "type": "string",
+          "default": "",
+          "description": "Slack Bot User Name for messages sent by you"
+        }
+      }
+    }
   },
   "scripts": {
     "lint": "eslint .",

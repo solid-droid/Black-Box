@@ -10,6 +10,10 @@ var WebSocketClient = require('websocket').client;
 /**
  * @param {vscode.ExtensionContext} context
  */
+// tokens
+let OPENAI_API_KEY = env.OPENAI_API_KEY;
+let SLACK_TOKEN = env.SLACK_TOKEN;
+let SLACK_SOCKET_TOKEN = env.SLACK_SOCKET_TOKEN;
 //webview
 let currentPanel = null;
 //slack
@@ -35,8 +39,21 @@ const comandCenter = {
 }
 
 async function activate(context) {
-	// openAITest();
-	client = new WebClient(env.SLACK_TOKEN ,{
+	const settings = vscode.workspace.getConfiguration('black-box');
+	OPENAI_API_KEY = settings.get('OPENAI_API_KEY').toString() === '' ? env.OPENAI_API_KEY : settings.get('OPENAI_API_KEY').toString();
+	SLACK_TOKEN = settings.get('SLACK_TOKEN').toString() === '' ? env.SLACK_TOKEN : settings.get('SLACK_TOKEN').toString();
+	SLACK_SOCKET_TOKEN = settings.get('SLACK_SOCKET_TOKEN').toString() === '' ? env.SLACK_SOCKET_TOKEN : settings.get('SLACK_SOCKET_TOKEN').toString();
+	userName = settings.get('SLACK_USER_NAME').toString() === '' ? '_user_' : settings.get('SLACK_USER_NAME').toString();
+	vscode.workspace.onDidChangeConfiguration(async (event) => {
+		const answer = await vscode.window.showInformationMessage(
+			`Black Box : Settings changed, please reload extension`,
+			 "Reload",
+			);
+		if(answer === "Reload"){
+			vscode.commands.executeCommand("workbench.action.reloadWindow");
+		}
+	});
+	client = new WebClient(SLACK_TOKEN ,{
 		//   logLevel: LogLevel.DEBUG
 		});
 	WSclient = new WebSocketClient();
@@ -44,7 +61,7 @@ async function activate(context) {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
-			'Authorization': `Bearer ${env.SLACK_SOCKET_TOKEN}`,
+			'Authorization': `Bearer ${SLACK_SOCKET_TOKEN}`,
 		},
 	})).json();
 
@@ -217,7 +234,6 @@ function getWebviewContent(context) {
 
 async function describeCode(code){
 	process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-	const OPENAI_API_KEY = env.OPENAI_API_KEY;
 	const engine = 'davinci-codex';
 	const url = `https://api.openai.com/v1/engines/${engine}/completions`;
 	code = `
@@ -251,7 +267,7 @@ async function describeCode(code){
 async function findChannel(name) {
     try {
       const result = await client.conversations.list({
-        token: env.SLACK_TOKEN,
+        token: SLACK_TOKEN,
       });
   
       for (const channel of result.channels) {
@@ -300,7 +316,7 @@ async function getThreadMessages(threadID , threadName , force=false){
 async function publishMessage(channelID, text , ts= undefined , mrkdwn = true) {
     try {
       const result = await client.chat.postMessage({
-        token: env.SLACK_TOKEN,
+        token: SLACK_TOKEN,
         channel: channelID,
         text: text,
 		thread_ts: ts,
