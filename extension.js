@@ -397,21 +397,23 @@ async function updateThreadBuffer(threadID){
 	
 }
 async function loadThread(filePath , filterTags = lastFilter){
-	await new Promise(resolve => setTimeout(resolve, 100));
-	lastFilter = filterTags;
-	if(filePath && gitRepo){
-		const threadName = gitRepo.name+filePath.split(gitRepo.name)[1];
-		const displayName = '...\\'+threadName.split('\\')[threadName.split('\\').length-1];
-		currentThread = {threadName:threadName,displayName:displayName};
-		postDataToExtension({
-			command: 'thread',
-			thread: threadName,
-			displayName:displayName,
-		})
-		const thread = await findThread(threadName);
-		currentThread['threadID'] = thread.ts;
-		const threadMessages = await getThreadMessages(thread.ts, threadName);
-		updateThreadMsgOnScreen(threadMessages , thread.ts , filterTags)
+	if(filePath){
+		await new Promise(resolve => setTimeout(resolve, 100));
+		lastFilter = filterTags;
+		if(filePath && gitRepo){
+			const threadName = gitRepo.name+filePath.split(gitRepo.name)[1];
+			const displayName = '...\\'+threadName.split('\\')[threadName.split('\\').length-1];
+			currentThread = {threadName:threadName,displayName:displayName};
+			postDataToExtension({
+				command: 'thread',
+				thread: threadName,
+				displayName:displayName,
+			})
+			const thread = await findThread(threadName);
+			currentThread['threadID'] = thread.ts;
+			const threadMessages = await getThreadMessages(thread.ts, threadName);
+			updateThreadMsgOnScreen(threadMessages , thread.ts , filterTags)
+		}
 	}
 }
 
