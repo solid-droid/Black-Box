@@ -27,6 +27,8 @@ let lastFilter = [];
 let threadBuffer = {};
 let threadIDref = {};
 let channelCreationInProgress = false;
+let updateLiveDocInProgress = false;
+let repoCreated = false;
 //codebase
 let gitRepo = null;
 let userName = null;
@@ -102,7 +104,7 @@ async function activate(context) {
 			}
 			if(previousFile !== fileName){
 				previousFile = fileName;
-				await updateLiveDoc(fileName);
+				updateLiveDoc(fileName);
 			}
 		}
 	})
@@ -130,10 +132,6 @@ async function getRepoDetails(){
 				owner:json.owner.login, 
 				channel:channel
 			};
-			postDataToExtension({
-				command:'channel', 
-				channel: `#${channel}`,
-			});
 		} catch(e){
 			console.log('error with git fetch');
 			console.log(e);
@@ -212,30 +210,37 @@ async function OpenAIDescribe(){
 }
 
 async function updateLiveDoc(filePath = null){
-	await new Promise(resolve => setTimeout(resolve, 100));
-	await vscode.window.withProgress(
-		{
-		  location: vscode.ProgressLocation.Notification,
-		  title: 'Black Box ',
-		  cancellable: false,
-		},
-		async (progress, token) => {
-			await progress.report({ message: ' Loading Thread' });
-			let currOpenEditor = vscode.window.activeTextEditor;
-			if(!filePath){
-				filePath = currOpenEditor?.document?.fileName;
-			}
-			rootPath = filePath?.split(gitRepo.name)[0];
-			postDataToExtension({
-				command:'channel', 
-				channel: `#${gitRepo.channel}`,
+	if(!updateLiveDocInProgress){
+		updateLiveDocInProgress = true;
+		await new Promise(resolve => setTimeout(resolve, 100));
+		await vscode.window.withProgress(
+			{
+			location: vscode.ProgressLocation.Notification,
+			title: 'Black Box ',
+			cancellable: false,
+			},
+			async (progress, token) => {
+				await progress.report({ message: ' Loading Thread' });
+				let currOpenEditor = vscode.window.activeTextEditor;
+				if(!filePath){
+					filePath = currOpenEditor?.document?.fileName;
+				}
+				rootPath = filePath?.split(gitRepo.name)[0];
+				await loadThread(filePath);
+				await createHelpThread();
+				if(repoCreated){
+					await progress.report({ message: ' Thread Loading complete' });
+					postDataToExtension({
+						command:'channel', 
+						channel: `#${gitRepo.channel}`,
+					});
+				} else {
+					await progress.report({ message: ' Black box requires slack channel' });
+				}
+				updateLiveDocInProgress = false;
+				await new Promise(resolve => setTimeout(resolve, 1500));
 			});
-			await loadThread(filePath);
-			await createHelpThread();
-			await progress.report({ message: ' Thread Loading complete' });
-			await new Promise(resolve => setTimeout(resolve, 1500));
-		});
-	
+		}
 }
 async function postDataToExtension(message){
 	if (!currentPanel) {
@@ -388,7 +393,6 @@ async function publishMessage(channelID, text , ts= undefined , mrkdwn = true) {
   }
 
 async function checkThreadMessage(channelRepo , text){
-	console.log(channelRepo);
 	let rootMessages = await getHistory(channelRepo);
 	rootMessages = rootMessages.messages
 						.filter(message => message.thread_ts)
@@ -544,6 +548,11 @@ async function getChannelID(channel){
 			channelCreationInProgress = false;
 		}
 	}
+	if(channelRepo){
+		repoCreated = true;
+	}else{
+		repoCreated = false;
+	}
 	return channelRepo;
 
 }
@@ -574,7 +583,6 @@ async function slack_sendMessage(message){
 }
 
 async function createChannelRepo(channel){
-	console.log('Creating channel');
 	const answer = await vscode.window.showInformationMessage(
 		`Slack : ${channel} channel not found` ,
 		 "Create Channel",
