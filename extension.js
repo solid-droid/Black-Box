@@ -26,6 +26,7 @@ let globalDocsThread = null;
 let lastFilter = [];
 let threadBuffer = {};
 let threadIDref = {};
+let channelCreationInProgress = false;
 //codebase
 let gitRepo = null;
 let userName = null;
@@ -133,7 +134,6 @@ async function getRepoDetails(){
 				command:'channel', 
 				channel: `#${channel}`,
 			});
-			createHelpThread();
 		} catch(e){
 			console.log('error with git fetch');
 			console.log(e);
@@ -155,10 +155,12 @@ async function createHelpThread(force = false){
 			await progress.report({ message: 'updating help thread' });
 			threadName = 'Active Help';
 			const thread = await findThread(threadName);
-			const threadMessages = await getThreadMessages(thread.ts, threadName, force);
-			await updateHelpContent(threadMessages);
-			await progress.report({ message: 'help thread updated' });
-			await new Promise(resolve => setTimeout(resolve, 1500));
+			if(thread){
+				const threadMessages = await getThreadMessages(thread.ts, threadName, force);
+				await updateHelpContent(threadMessages);
+				await progress.report({ message: 'help thread updated' });
+				await new Promise(resolve => setTimeout(resolve, 1500));
+			}
 		});
 
 }
@@ -229,7 +231,7 @@ async function updateLiveDoc(filePath = null){
 				channel: `#${gitRepo.channel}`,
 			});
 			await loadThread(filePath);
-
+			await createHelpThread();
 			await progress.report({ message: ' Thread Loading complete' });
 			await new Promise(resolve => setTimeout(resolve, 1500));
 		});
@@ -386,6 +388,7 @@ async function publishMessage(channelID, text , ts= undefined , mrkdwn = true) {
   }
 
 async function checkThreadMessage(channelRepo , text){
+	console.log(channelRepo);
 	let rootMessages = await getHistory(channelRepo);
 	rootMessages = rootMessages.messages
 						.filter(message => message.thread_ts)
@@ -412,20 +415,25 @@ async function findThread(threadName){
 		return threadBuffer[threadName].thread;
 
 	const channelRepo = await getChannelID(gitRepo.channel);
-	let thread = await checkThreadMessage(channelRepo , threadName);
-	if(thread){
-		threadBuffer[threadName] = {thread};
-		threadIDref[thread.thread_ts] = threadName;
-		return threadBuffer[threadName].thread;
-	}else{
-		//CREATE THREAD
-		const result = await publishMessage(channelRepo , threadName);
-		await publishMessage(channelRepo , 'Bot:Thread Created' , result.ts);
-		thread = await checkThreadMessage(channelRepo , threadName);
-		threadBuffer[threadName] = {thread};
-		threadIDref[thread.thread_ts] = threadName;
-		return threadBuffer[threadName].thread;
+	if(channelRepo){
+		let thread = await checkThreadMessage(channelRepo , threadName);
+		if(thread){
+			threadBuffer[threadName] = {thread};
+			threadIDref[thread.thread_ts] = threadName;
+			return threadBuffer[threadName].thread;
+		}else{
+			//CREATE THREAD
+			const result = await publishMessage(channelRepo , threadName);
+			await publishMessage(channelRepo , 'Bot:Thread Created' , result.ts);
+			thread = await checkThreadMessage(channelRepo , threadName);
+			threadBuffer[threadName] = {thread};
+			threadIDref[thread.thread_ts] = threadName;
+			return threadBuffer[threadName].thread;
+		}
+	} else {
+		return undefined;
 	}
+
 }
 
 
@@ -471,9 +479,11 @@ async function loadThread(filePath , filterTags = lastFilter){
 				displayName:displayName,
 			})
 			const thread = await findThread(threadName);
-			currentThread['threadID'] = thread.ts;
-			const threadMessages = await getThreadMessages(thread.ts, threadName);
-			updateThreadMsgOnScreen(threadMessages , thread.ts , filterTags)
+			if(thread){
+				currentThread['threadID'] = thread.ts;
+				const threadMessages = await getThreadMessages(thread.ts, threadName);
+				updateThreadMsgOnScreen(threadMessages , thread.ts , filterTags);
+			}
 		}
 	}
 }
@@ -527,8 +537,12 @@ function preProcessIncommingMessage(item){
 async function getChannelID(channel){
 	let channelRepo = await findChannel(channel);
 	if(!channelRepo){
-		await createChannelRepo(channel);
-		channelRepo = await findChannel(channel);
+		if(!channelCreationInProgress){
+			channelCreationInProgress = true;
+			await createChannelRepo(channel);
+			channelRepo = await findChannel(channel);
+			channelCreationInProgress = false;
+		}
 	}
 	return channelRepo;
 
@@ -547,7 +561,7 @@ async function slack_sendMessage(message){
 			if(message.includes('#help')){
 			 const msg = 'File: '+currentThread.threadName;
 			 const helpThread = await findThread('Active Help');
-			 if(!threadBuffer['Active Help'].message.find(item => item.text.includes(msg))){
+			 if(helpThread && !threadBuffer['Active Help'].message.find(item => item.text.includes(msg))){
 				await publishMessage(channelRepo , `${user}:${HTMLToSlack(msg)}` , helpThread.ts);
 			 }
 			}
@@ -560,6 +574,7 @@ async function slack_sendMessage(message){
 }
 
 async function createChannelRepo(channel){
+	console.log('Creating channel');
 	const answer = await vscode.window.showInformationMessage(
 		`Slack : ${channel} channel not found` ,
 		 "Create Channel",
