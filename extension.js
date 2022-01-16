@@ -182,9 +182,8 @@ async function OpenAIDescribe(){
 	if(selection){
 		selectedContent = currOpenEditor?.document?.getText(selection);
 	}
-	if(content){
-		if(selectedContent.trim() !== ""){
-			vscode.window.withProgress(
+	if(content && selectedContent.trim() !== ""){
+		vscode.window.withProgress(
 				{
 				  location: vscode.ProgressLocation.Notification,
 				  title: 'OpenAI ',
@@ -204,9 +203,9 @@ async function OpenAIDescribe(){
 			   }
 			  )
 			
-		}
+		
 	} else {
-		vscode.window.showErrorMessage("please select a code segment and press CTRL + M");
+		vscode.window.showErrorMessage("OpenAI : please select a code segment and press ALT + M");
 	}
 }
 

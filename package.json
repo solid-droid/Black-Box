@@ -4,7 +4,7 @@
   "description": "Real-time development logger and problem solver",
   "publisher": "nikhilmjeby",
   "version": "0.0.2",
-  "icon": "./logo_128x128.png",
+  "icon": "logo_128x128.png",
   "engines": {
     "vscode": "^1.63.0"
   },
@@ -12,7 +12,7 @@
     "Other"
   ],
   "activationEvents": [
-    "*",
+    "onStartupFinished",
     "onCommand:black-box.openLiveDoc",
     "onCommand:black-box.refreshLiveDoc"
   ],
