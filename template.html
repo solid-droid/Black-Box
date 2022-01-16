@@ -3,61 +3,636 @@
   <head>
 	  <meta charset="UTF-8">
 	  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-	  <title>Cat Coding</title>
-      <style>
+	  <title>Black-Box</title>
+      <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/split.js/1.6.2/split.min.js"></script>
+
+      <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+
+<style>
+          /* width */
+
+          p{
+            margin-block-start: 0!important;
+    margin-block-end: 0!important;
+          }
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+  background: #f1f1f1; 
+}
+ 
+/* Handle */
+::-webkit-scrollbar-thumb {
+  background: #888; 
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+  background: #555; 
+}
+
+.gutter {
+    background-color: #eee;
+    background-repeat: no-repeat;
+    background-position: 50%;
+}
+
+.gutter.gutter-vertical {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAFAQMAAABo7865AAAABlBMVEVHcEzMzMzyAv2sAAAAAXRSTlMAQObYZgAAABBJREFUeF5jOAMEEAIEEFwAn3kMwcB6I2AAAAAASUVORK5CYII=');
+    cursor: row-resize;
+}
+
           body{
               width: fill-available;
               height: 100vh;
               margin: 0; 
-              overflow: hidden;        
+              background-color: rgb(32, 32, 32);    
+              color: white;  
+              padding: 0 !important;
             }
             .container{
-              width: calc(100%-10px);
+              /* position: fixed;
+              top:5px;
+              left:5px; */
+              width: calc(100% - 10px);
               height: calc(100% - 10px);
               padding: 5px;
               display: grid;
               grid-gap: 5px;
               font-size: 14px;
-              grid-template-rows: 35px 120px;
+              grid-template-rows: 37px 1fr;
             }
+            /* /////////////////////// */
             .help{
                 /* border: solid 1px; */
-                display: grid;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 10px;
             }
+            .help-commands{
+                color: gray;
+            }
+            .pluginTitle{
+                display: flex;
+                grid-gap: 5px;
+                align-items: baseline;
+                font-size: 15px;
+            }
+            .techDetails{
+                color:white; 
+            }
+            .pluginTitle > div {
+                font-size: 7px;
+                color:gray;
+            }
+            /* ///////////////////////////////////// */
             .info{
-                border: solid 1px;
+                border-top: solid 1px gray;
+                border-bottom: dashed 1px gray;
+                /* border: solid 1px; */
             }
             .doc{
-                border: solid 1px;
+                /* border: solid 1px; */
+                bottom: 0;
+                /* width: calc(100% - 10px); */
+                /* height: calc(100% - 170px); */
                 display: grid;
-                grid-template-rows: 1fr 60px;
+                grid-template-rows: 20px 1fr;
+                overflow: hidden;
                 grid-gap:5px;
             }
             .chatContent{
-                border: solid 1px;
+               
+                overflow: auto;
             }
-      </style>
+            .chatInput{
+                position: absolute;
+                bottom: 0;
+                width: calc(100% - 20px);
+                margin: 5px;
+                height: 160px;
+            }
+            .footer{
+                display: flex;
+                justify-content: space-between;
+                height: 35px;
+                bottom: 0;
+                width: calc(100% - 13px);
+                position: absolute;
+                align-items: center;
+
+            }
+            .footer > .hashtags{
+                display: flex;
+                font-size: 10px;
+                align-items: center;
+                height: 100%;
+                color: gray;
+                grid-gap:5px;
+            }
+            #chatSend{
+                width: 70px;
+                height: 25px;
+                cursor: pointer;
+                border-radius: 5px;
+            }
+
+            .infoHeader{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 10px;
+                color: gray;
+                padding-top: 3px;
+                padding-bottom: 3px;
+                border-bottom: dashed 1px gray;
+            }
+
+            .infoHeader > .infoCatagories{
+                display: flex;
+                grid-gap: 5px;
+                padding-right: 10px;
+            }
+
+            .infoHeader > .infoCatagories > div{
+                border-bottom: solid 1px;
+                color: rgb(179, 179, 179);
+                cursor: pointer;
+            }
+            .infoHeader > .infoCatagories > div:hover {
+                color: rgb(80, 131, 197);
+            }
+
+            #settings{
+                color: rgb(179, 179, 179);
+                cursor: pointer;
+                text-align: right;
+            }
+            #settings:hover {
+                color: rgb(80, 131, 197);
+            }
+            .infoContent{
+                padding-left: 5px;
+                overflow: auto;
+                height: calc(100% - 20px);;
+            }
+            .infoContent > .helpItem{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 10px;
+                color: white;
+                padding:3px;
+                margin-top: 3px;
+                margin-right:10px;
+                border: solid 1px;
+                border-radius: 5px;
+                background-color: rgb(47, 47, 47);
+            }
+            .info_file{
+                height: 13px;
+                overflow: hidden;
+                word-break: break-all;
+                display: flex;
+            }
+
+            .infoItemBtns{
+                display: flex;
+                align-items: center;
+                grid-gap:5px;
+                flex-shrink: 0;
+            }
+            .infoItemBtns > .solved{
+                border-bottom: solid 1px;
+                color: rgb(179, 179, 179);
+                cursor: pointer;
+                font-size: 10px;
+            }
+            .infoItemBtns > .solved:hover {
+                color: rgb(80, 131, 197);
+            }
+            .infoItemBtns > button{
+                border-radius:5px;
+            }
+
+            /* /////////////////////////////////////////////////////// */
+
+            .chatContent{
+                display: flex;
+                flex-direction: column;
+                border-top: dashed 1px gray;
+                border-bottom: solid 1px gray;
+                max-height: 100%;
+            }
+            .split{
+                height: calc(100vh - 220px);
+                max-height:calc(100vh - 220px);
+            }
+            .chatContent > .messageItem{
+                border: solid 1px gray;
+                margin-top: 5px;
+                overflow: hidden;
+                border-radius: 3px;
+                flex-shrink: 0;
+                padding: 5px;
+                color: black;
+                width: calc(100% - 20px);
+                background-color: rgb(182 182 182);
+            }
+
+            .messageItem > .messageHeader{
+                border-bottom: solid 1px rgb(92, 92, 92);
+                font-size: 10px;
+                padding-bottom: 3px;
+                display: flex;
+                justify-content: space-between;
+            }
+            .messageItem > .messageContent{
+                height: fit-content;
+                padding-top:3px
+            }
+            .messageThreadTitle{
+                display: flex;
+                justify-content: space-between;
+                font-size: 10px;
+                color: gray;
+                height: 100%;
+                align-items: center;
+                padding-top: 5px;
+            }
+            .messageThreadTitle > .threadHeader{
+                display: flex;
+                color: white;
+            }
+            .messageThreadTitle > .threadCatagory{
+                display: flex;
+                grid-gap: 5px;
+                padding-right: 10px;
+            }
+            .messageThreadTitle > .threadCatagory > div{
+                border-bottom: solid 1px;
+                color: rgb(179, 179, 179);
+                cursor: pointer;
+            }
+            .messageThreadTitle > .threadCatagory > div:hover {
+                color: rgb(80, 131, 197);
+            }
+
+            .active{
+                color: rgb(80, 131, 197) !important;
+            }
+        /* library css */
+        .ql-container.ql-snow {
+            height: 85px;
+        }
+
+        .ql-syntax{
+            background-color: rgb(0 0 0);
+            color: #ffffff;
+            font-weight: bold;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        .ql-container.ql-snow {
+            color:black;
+            background-color: rgb(236, 236, 236);
+            border: 1px solid #515151;
+            border-bottom-right-radius: 5px;
+            border-bottom-left-radius: 5px;
+        }
+
+        .ql-toolbar.ql-snow {
+            background-color: rgb(236, 236, 236);
+            border: 1px solid #515151;
+            border-top-left-radius: 5px;
+            border-top-right-radius: 5px;
+        }
+
+        /* .ql-toolbar .ql-stroke {
+            fill: none;
+            stroke: #fff;
+        }
+
+        .ql-toolbar .ql-fill {
+            fill: #fff;
+            stroke: none;
+        }
+
+        .ql-toolbar .ql-picker {
+            color: #fff;
+        } */
+
+        .ql-snow .ql-picker-options {
+            background-color: #464646;
+        }
+
+        /* ///////////////////////////////// */
+
+        @media screen and (max-width: 380px) {
+            .ql-container.ql-snow {
+                height: 85px;
+            }
+        }
+
+        @media screen and (max-width: 400px) {
+            .help-commands{
+                display: none;
+            }
+        }
+
+        .criticalIcon{
+            color: red;
+            padding-right: 2px;
+            margin-top: -3px;
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 0px -1px 3px red;
+        }
+
+</style>
   </head>
   <body>
       <div class="container">
-        <div class="help">
-            <div><strong>ALT + M :</strong> load document for selected file</div> 
-            <div><strong>Select code and ALT + M :</strong> Get OpenAI description of code</div>
-           </div>
-           <div class="info">
-            info
-            </div>
-            <div class="doc">
-                <div class="chatContent"></div>
-                <div class="chatInput">
-                    <textarea id="chatInput" placeholder="Type your message here..."></textarea>
-                    <button id="chatSend">Send</button>
+            <div class="help">
+            <div class="help-appInfo">
+                <div class="pluginTitle">
+                    <strong>Black-Box</strong>
+                    <div>v1.0</div>
+                </div> 
+                <div class="techDetails">
+                    <div id="channelName">
+                        slack : need git repo (refresh => CTRL + M)
+                    </div>
                 </div>
             </div>
+            <div class="help-commands">
+                <div id="settings" onclick="openSettings()">Settings &nbsp;</div>
+                <div>OpenAI &nbsp;&nbsp;:&nbsp; Alt + M &nbsp;</div> 
+            </div>
+           
+           </div>
+           <div class="split">
+            <div id="infoBox" class="info">
+                <div class="infoHeader">
+                    <div>
+                        Info
+                    </div>
+                    <div class="infoCatagories">
+                        <div id="helpMenu" onclick="getHelpItems()">
+                            Help
+                        </div> |
+                        <div id="OpenAI" onclick="getOpenAI()">
+                            AI description
+                        </div>
+                    </div>
+                </div>
+                <div class="infoContent" id="tab_help">
+                    No active help requested for this repo.
+                    <br> Add #help tag for help message.
+                </div>
+                <div class="infoContent" id="tab_AI">
+                    Select code snippet + ALT + M
+                </div>
+            </div>
+            <div id="docBox" class="doc">
+                <div class="messageThreadTitle">
+                    <div id="threadName" class="threadHeader">
+                            Thread : N/A 
+                    </div>
+                   <div class="threadCatagory">
+                        <div id="tag_best" onclick="getBestPractices()">
+                            Best Practices
+                        </div> |
+                        <div id="tag_doc" onclick="getDocumentation()">
+                            Documention
+                        </div>
+                   </div>
+                </div>
+                <div id ="chatContent" class="chatContent">
+
+                </div>
+            </div>
+           </div>
+        <div class="chatInput">
+            <div id="editor">
+               
+            </div>
+        </div>
+        <div class="footer">
+            <div class="hashtags">
+                <div>#help</div>
+                <div>#best</div>
+                <div>#doc</div>
+                <div>#globalDoc</div>
+            </div>
+            <button id="chatSend" onclick="sendMessage()">Send</button>
+        </div>
       </div>
 	  
 	  <script>
-	  
+        let vscode = null;
+        let tag_best = false;
+        let tag_doc = false;
+        let help = true;
+        let OpenAI = false;
+        let quill = null;
+        let currentThread = null;
+        let commandCenter = {
+            thread : data => {
+                currentThread = data;
+                $("#threadName").text("Thread : " + data.displayName);
+                $("#threadName").attr("title", data.thread);
+            },
+            channel: data => $("#channelName").text("slack : " + data.channel),
+            message: data => loadThread(data.message),
+            OpenAI: data => getOpenAI(data.content),
+            help: data => loadHelpItems(data.files),
+        }
+        try{
+            vscode = acquireVsCodeApi();
+        }catch(e){}
+
+        window.addEventListener('message', event => {
+              commandCenter[event.data.command](event.data)
+        });
+        initScreen();
+        getHelpItems();
+
+
+    function getHelpItems(){
+        $('#OpenAI').removeClass('active');
+        $('#helpMenu').addClass('active');
+        $('#tab_help').show();
+        $('#tab_AI').hide();
+        help = true;
+        OpenAI = false;
+
+    }
+
+    function solved(ts){
+        let message = {
+            command: "solved",
+            data:{
+                ts: ts
+            }
+        }
+        vscode.postMessage(message);
+    }
+
+    function loadHelpItems(files){
+        console.log(files);
+        if(files.length){
+            $('#tab_help').empty();
+            files.forEach(x=>{
+                //replace &gt; with ''
+                const file = x.file.replace(/&gt;/g, '');
+                const ts = x.ts+','+x.thread_ts;
+                const helpItem = `<div class="helpItem">
+                        <div class="info_file" title="File : ${file}">
+                            <div class="criticalIcon">
+                                !
+                            </div>
+                            File : ${file}
+                        </div>
+                        <div class="infoItemBtns">
+                            <div class="solved" onclick="solved('${ts}')"> Mark As Solved</div>
+                            <button onclick="openFile('${file.replaceAll('\\','\\\\')}')">Open</button>
+                        </div>
+                    </div>`;
+                $('#tab_help').append(helpItem);
+            })
+            
+        } else {
+            $('#tab_help').html("No active help requested for this repo.<br> Add #help tag for help message.");
+        }
+       
+    }
+    function getOpenAI(text=null){
+        $('#helpMenu').removeClass('active');
+        $('#OpenAI').addClass('active');
+        $('#tab_AI').show();
+        $('#tab_help').hide();
+        help = false;
+        OpenAI = true;
+        if(text){
+            //replace \n with <br>
+            text = text.replace(/\n/g, "<br>");
+            $('#tab_AI').html(text);
+        }
+    }
+
+    function getBestPractices(){
+        $('#tag_doc').removeClass('active');
+        $('#tag_best').toggleClass('active');
+        tag_best = !tag_best;
+        tag_doc = false;
+        if(tag_best){
+            vscode.postMessage({command: 'tag_best'});
+        }else{
+            vscode.postMessage({command: 'loadAll'});
+        }
+    }
+
+    function openSettings(){
+        vscode.postMessage({command: 'openSettings'});
+    }
+    function getDocumentation(){
+        $('#tag_best').removeClass('active');
+        $('#tag_doc').toggleClass('active');
+        tag_doc = !tag_doc;
+        tag_best = false;
+        if(tag_doc){
+            vscode.postMessage({command: 'tag_doc'});
+        } else{
+            vscode.postMessage({command: 'loadAll'});
+        }
+    }
+
+    function initScreen(){
+
+        let toolbarOptions = [['bold', 'italic', 'strike','code-block']];  
+	    quill = new Quill('#editor', {
+                modules: { toolbar: toolbarOptions },
+                theme: 'snow'
+            });
+
+        Split(['#infoBox', '#docBox'], {
+                direction: 'vertical',
+                minSize: 30,
+                maxSize: 100,
+                gutterSize: 5,
+                gutterAlign: 'center',
+                snapOffset: 0,
+                sizes: [40, 60],
+        });
+    }
+    function clearChat(){
+        $("#chatContent").empty();
+    }
+
+    function openFile(file){
+        vscode.postMessage({
+            command: 'openFile',
+            data:{
+                file: file
+            }
+        });
+    }
+
+    function markAsResolved(url){
+        vscode.postMessage({
+            command: 'markAsResolved',
+            data:{
+                url: url
+            }
+        });
+    }
+
+    function sendMessage(){
+        const message = quill.root.innerHTML;
+        vscode.postMessage({
+            command: 'sendMessage',
+            data:{
+               message : message,
+            }
+        });
+        quill.setContents([{ insert: '\n' }]);
+    }
+
+    function loadThread(messages) {
+            clearChat();
+            messages.forEach(element => {
+                addMessage(element.text, element.user, element.time , element.tags);
+            });
+            scrollDown();
+    }
+    function addMessage(text , user , time = null , tags = []){
+
+            const message = `
+            <div class="messageItem">
+                <div class="messageHeader">
+                    <div>${user} :</div>
+                    <div>${tags.join(" ")}</div>
+                </div>
+                <div class="messageContent">
+                    ${text}
+                </div>
+            </div>
+            `;
+            
+            $('#chatContent').append(message);
+    }
+
+    function scrollDown(){
+        $('#chatContent').scrollTop($('#chatContent')[0].scrollHeight);
+    }
+
 	  </script>
   </body>
   </html>
