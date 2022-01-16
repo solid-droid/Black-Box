@@ -1,9 +1,10 @@
 {
   "name": "black-box",
   "displayName": "Black Box",
-  "description": "Real-time developer problem solver",
+  "description": "Real-time development logger and problem solver",
   "publisher": "nikhilmjeby",
-  "version": "0.0.1",
+  "version": "0.0.2",
+  "icon": "./logo_128x128.png",
   "engines": {
     "vscode": "^1.63.0"
   },
@@ -62,6 +63,11 @@
           "type": "string",
           "default": "",
           "description": "Slack Bot User Name for messages sent by you"
+        },
+        "black-box.START_AUTO": {
+          "type": "boolean",
+          "default": true,
+          "description": "Start Black Box automatically on vscode startup"
         }
       }
     }

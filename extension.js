@@ -14,6 +14,7 @@ var WebSocketClient = require('websocket').client;
 let OPENAI_API_KEY = env.OPENAI_API_KEY;
 let SLACK_TOKEN = env.SLACK_TOKEN;
 let SLACK_SOCKET_TOKEN = env.SLACK_SOCKET_TOKEN;
+let START_AUTO = false;
 //webview
 let currentPanel = null;
 //slack
@@ -28,14 +29,16 @@ let threadIDref = {};
 //codebase
 let gitRepo = null;
 let userName = null;
-
-
+let rootPath = null;
 
 const comandCenter = {
 	"sendMessage": data => slack_sendMessage(data.message , data.channel , data.thread),
 	"tag_best" : () => loadThread(currentThread.threadName, ['#best']),
 	"tag_doc" : () => loadThread(currentThread.threadName, ['#doc','#globalDoc']),
 	"loadAll" : () => loadThread(currentThread.threadName, []),
+	"openSettings" : () => vscode.commands.executeCommand('workbench.action.openSettings', 'black-box'),
+	"solved" : (data) => solvedHelpItem(data.ts),
+	"openFile" : (data) => openFile(data.file),
 }
 
 async function activate(context) {
@@ -44,6 +47,7 @@ async function activate(context) {
 	SLACK_TOKEN = settings.get('SLACK_TOKEN').toString() === '' ? env.SLACK_TOKEN : settings.get('SLACK_TOKEN').toString();
 	SLACK_SOCKET_TOKEN = settings.get('SLACK_SOCKET_TOKEN').toString() === '' ? env.SLACK_SOCKET_TOKEN : settings.get('SLACK_SOCKET_TOKEN').toString();
 	userName = settings.get('SLACK_USER_NAME').toString() === '' ? '_user_' : settings.get('SLACK_USER_NAME').toString();
+	START_AUTO = settings.get('START_AUTO') == false ? false : settings.get('START_AUTO');
 	vscode.workspace.onDidChangeConfiguration(async (event) => {
 		const answer = await vscode.window.showInformationMessage(
 			`Black Box : Settings changed, please reload extension`,
@@ -86,10 +90,10 @@ async function activate(context) {
 
 	let previousFile = null;
 	vscode.workspace.onDidOpenTextDocument(async (file) => {
-		if(!gitRepo){
+		if(!gitRepo && START_AUTO){
 			await beginLiveDocs(context)
 		}
-		if(file.fileName){
+		if(file.fileName && START_AUTO){
 			let fileName = file.fileName;
 			if(file.fileName.substring(file.fileName.length - 4) === '.git') {
 				//remove last 4 characters
@@ -129,6 +133,7 @@ async function getRepoDetails(){
 				command:'channel', 
 				channel: `#${channel}`,
 			});
+			createHelpThread();
 		} catch(e){
 			console.log('error with git fetch');
 			console.log(e);
@@ -139,6 +144,36 @@ async function getRepoDetails(){
 	return null
 }
 
+async function createHelpThread(force = false){
+	await vscode.window.withProgress(
+		{
+		  location: vscode.ProgressLocation.Notification,
+		  title: 'Black Box ',
+		  cancellable: false,
+		},
+		async (progress, token) => {
+			await progress.report({ message: 'updating help thread' });
+			threadName = 'Active Help';
+			const thread = await findThread(threadName);
+			const threadMessages = await getThreadMessages(thread.ts, threadName, force);
+			await updateHelpContent(threadMessages);
+			await progress.report({ message: 'help thread updated' });
+			await new Promise(resolve => setTimeout(resolve, 1500));
+		});
+
+}
+
+async function updateHelpContent(threadMessages){
+	files = threadMessages.filter(x => 
+	  x.text!=='Bot:Thread Created' && 
+	  x.text!=='Active Help' && 
+	  x.text.includes('File:'))
+	  .map(x => ({file : x.text.split('File:')[1], ts : x.ts , thread_ts: x.thread_ts}));
+	postDataToExtension({
+			command:'help',
+			files:files,
+	});
+}
 async function OpenAIDescribe(){
 	let currOpenEditor = vscode.window.activeTextEditor;
 	const content  = currOpenEditor?.document?.getText();
@@ -159,7 +194,7 @@ async function OpenAIDescribe(){
 					await progress.report({ message: ' Processing' });
 					const descritption = await describeCode(selectedContent);
 					const text = descritption?.choices[0]?.text;
-					postDataToExtension({type:'OpenAI', content:text});
+					postDataToExtension({command:'OpenAI', content:text});
 					await progress.report({ message: ' Complete' });
 					await new Promise(resolve => setTimeout(resolve, 1000));
 					if(!currentPanel){
@@ -177,11 +212,29 @@ async function OpenAIDescribe(){
 
 async function updateLiveDoc(filePath = null){
 	await new Promise(resolve => setTimeout(resolve, 100));
-	let currOpenEditor = vscode.window.activeTextEditor;
-	if(!filePath){
-		filePath = currOpenEditor?.document?.fileName;
-	}
-	await loadThread(filePath);
+	await vscode.window.withProgress(
+		{
+		  location: vscode.ProgressLocation.Notification,
+		  title: 'Black Box ',
+		  cancellable: false,
+		},
+		async (progress, token) => {
+			await progress.report({ message: ' Loading Thread' });
+			let currOpenEditor = vscode.window.activeTextEditor;
+			if(!filePath){
+				filePath = currOpenEditor?.document?.fileName;
+			}
+			rootPath = filePath?.split(gitRepo.name)[0];
+			postDataToExtension({
+				command:'channel', 
+				channel: `#${gitRepo.channel}`,
+			});
+			await loadThread(filePath);
+
+			await progress.report({ message: ' Thread Loading complete' });
+			await new Promise(resolve => setTimeout(resolve, 1500));
+		});
+	
 }
 async function postDataToExtension(message){
 	if (!currentPanel) {
@@ -191,6 +244,7 @@ async function postDataToExtension(message){
   }
 
 async function beginLiveDocs(context){
+	START_AUTO = true;
 	await getRepoDetails();
 	if (currentPanel) {
         currentPanel.reveal(vscode.ViewColumn.Beside);
@@ -223,6 +277,9 @@ async function beginLiveDocs(context){
 		context.subscriptions
 	  );
 	}
+	const currOpenEditor = vscode.window.activeTextEditor;
+	const filePath = currOpenEditor?.document?.fileName;
+	updateLiveDoc(filePath);
 }
 
 
@@ -250,7 +307,7 @@ async function describeCode(code){
 		 {
 				prompt: code,
 				temperature: 0,
-				max_tokens: 64,
+				max_tokens: 170,
 				top_p: 1.0,
 				frequency_penalty: 0.0,
 				presence_penalty: 0.0,
@@ -393,6 +450,10 @@ async function updateThreadBuffer(threadID){
 		if(currentThread['threadID'] === threadID){
 			updateThreadMsgOnScreen(msg , threadID);
 		}
+
+		if(threadIDref[threadID] === 'Active Help'){
+			updateHelpContent(msg);
+		}
 	}
 	
 }
@@ -400,8 +461,9 @@ async function loadThread(filePath , filterTags = lastFilter){
 	if(filePath){
 		await new Promise(resolve => setTimeout(resolve, 100));
 		lastFilter = filterTags;
-		if(filePath && gitRepo){
-			const threadName = gitRepo.name+filePath.split(gitRepo.name)[1];
+		const fileName = filePath.split(gitRepo.name)[1];
+		if(fileName && gitRepo){
+			const threadName = gitRepo.name+ fileName;
 			const displayName = '...\\'+threadName.split('\\')[threadName.split('\\').length-1];
 			currentThread = {threadName:threadName,displayName:displayName};
 			postDataToExtension({
@@ -483,6 +545,13 @@ async function slack_sendMessage(message){
 			if(message.includes('#globalDoc')){
 				await publishMessage(channelRepo , `${user}:${HTMLToSlack(message)}` , globalDocsThread.ts);
 			}
+			if(message.includes('#help')){
+			 const msg = 'File: '+currentThread.threadName;
+			 const helpThread = await findThread('Active Help');
+			 if(!threadBuffer['Active Help'].message.find(item => item.text.includes(msg))){
+				await publishMessage(channelRepo , `${user}:${HTMLToSlack(msg)}` , helpThread.ts);
+			 }
+			}
 			await loadThread(currentThread.threadName);
 		} else{
 			vscode.window.showErrorMessage("No thread found ( To create thread => Select file Tab + Alt + M )");
@@ -516,6 +585,34 @@ async function createChannelRepo(channel){
 	}
 }
 
+
+async function solvedHelpItem(msg){
+	const ts = msg.split(',')[0];
+	const thread_ts = msg.split(',')[1];
+	try {
+		const channelId = await getChannelID(gitRepo.channel);
+		await client.chat.delete({
+		  token: SLACK_TOKEN ,
+		  channel: channelId,
+		  ts: ts,
+		  thread_ts: thread_ts,
+		});
+	  }
+	  catch (error) {
+		vscode.window.showErrorMessage("Some error occured while deleting help message");
+		console.error(error);
+	  }
+	  await createHelpThread(true);
+}
+
+async function openFile(file){
+	//delay for tab to be in focus
+	await new Promise(resolve => setTimeout(resolve, 500));
+	//open file
+	vscode.workspace.openTextDocument(rootPath + file.trim()).then(doc => {
+		vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside, false);
+	});
+}
 
 function deactivate() {}
 

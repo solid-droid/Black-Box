@@ -10,7 +10,7 @@
 
       <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 
-      <style>
+<style>
           /* width */
 
           p{
@@ -169,6 +169,14 @@
                 color: rgb(80, 131, 197);
             }
 
+            #settings{
+                color: rgb(179, 179, 179);
+                cursor: pointer;
+                text-align: right;
+            }
+            #settings:hover {
+                color: rgb(80, 131, 197);
+            }
             .infoContent{
                 padding-left: 5px;
                 overflow: auto;
@@ -347,7 +355,7 @@
             text-shadow: 0px -1px 3px red;
         }
 
-      </style>
+</style>
   </head>
   <body>
       <div class="container">
@@ -359,12 +367,12 @@
                 </div> 
                 <div class="techDetails">
                     <div id="channelName">
-                        slack : need git repo
+                        slack : need git repo (refresh => CTRL + M)
                     </div>
                 </div>
             </div>
             <div class="help-commands">
-                <div>Settings</div>
+                <div id="settings" onclick="openSettings()">Settings &nbsp;</div>
                 <div>OpenAI &nbsp;&nbsp;:&nbsp; Alt + M &nbsp;</div> 
             </div>
            
@@ -385,21 +393,11 @@
                     </div>
                 </div>
                 <div class="infoContent" id="tab_help">
-                    <div class="helpItem">
-                        <div class="info_file" title="File : src/sdajhbsadfdsdf/asdsfsdf/asfdsfs/sdsfsdfsdsadad/asdadasd/app.html">
-                            <div class="criticalIcon">
-                                !
-                            </div>
-                            File : src/sdajhbsadfdsdf/asdsfsdf/asfdsfs/sdsfsdfsdsadad/asdadasd/app.html
-                        </div>
-                        <div class="infoItemBtns">
-                            <div class="solved" > Mark As Solved</div>
-                            <button >Open</button>
-                        </div>
-                    </div>
+                    No active help requested for this repo.
+                    <br> Add #help tag for help message.
                 </div>
                 <div class="infoContent" id="tab_AI">
-
+                    Select code snippet + ALT + M
                 </div>
             </div>
             <div id="docBox" class="doc">
@@ -453,6 +451,8 @@
             },
             channel: data => $("#channelName").text("slack : " + data.channel),
             message: data => loadThread(data.message),
+            OpenAI: data => getOpenAI(data.content),
+            help: data => loadHelpItems(data.files),
         }
         try{
             vscode = acquireVsCodeApi();
@@ -475,13 +475,56 @@
 
     }
 
-    function getOpenAI(){
+    function solved(ts){
+        let message = {
+            command: "solved",
+            data:{
+                ts: ts
+            }
+        }
+        vscode.postMessage(message);
+    }
+
+    function loadHelpItems(files){
+        console.log(files);
+        if(files.length){
+            $('#tab_help').empty();
+            files.forEach(x=>{
+                //replace &gt; with ''
+                const file = x.file.replace(/&gt;/g, '');
+                const ts = x.ts+','+x.thread_ts;
+                const helpItem = `<div class="helpItem">
+                        <div class="info_file" title="File : ${file}">
+                            <div class="criticalIcon">
+                                !
+                            </div>
+                            File : ${file}
+                        </div>
+                        <div class="infoItemBtns">
+                            <div class="solved" onclick="solved('${ts}')"> Mark As Solved</div>
+                            <button onclick="openFile('${file.replaceAll('\\','\\\\')}')">Open</button>
+                        </div>
+                    </div>`;
+                $('#tab_help').append(helpItem);
+            })
+            
+        } else {
+            $('#tab_help').html("No active help requested for this repo.<br> Add #help tag for help message.");
+        }
+       
+    }
+    function getOpenAI(text=null){
         $('#helpMenu').removeClass('active');
         $('#OpenAI').addClass('active');
         $('#tab_AI').show();
         $('#tab_help').hide();
         help = false;
         OpenAI = true;
+        if(text){
+            //replace \n with <br>
+            text = text.replace(/\n/g, "<br>");
+            $('#tab_AI').html(text);
+        }
     }
 
     function getBestPractices(){
@@ -496,6 +539,9 @@
         }
     }
 
+    function openSettings(){
+        vscode.postMessage({command: 'openSettings'});
+    }
     function getDocumentation(){
         $('#tag_best').removeClass('active');
         $('#tag_doc').toggleClass('active');
@@ -530,11 +576,11 @@
         $("#chatContent").empty();
     }
 
-    function openFile(url){
+    function openFile(file){
         vscode.postMessage({
             command: 'openFile',
             data:{
-                url: url
+                file: file
             }
         });
     }
