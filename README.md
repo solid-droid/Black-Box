@@ -1,6 +1,7 @@
 # Black Box
 Black Box is Real-time development logger and problem solver  
 - Slack integration [ add your slack workspace token in settings]
+    - Default is a test workspace, you can add your own workspace
 - Each git-repo is a channel [Auto-created]
 - Each file is a thread  [Auto-created]
 - Tagging  
