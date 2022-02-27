@@ -6,6 +6,7 @@ const fs = require('fs');
 const {HTMLToSlack, SlackToHtml} = require('./slackParser');
 const gitExtension = vscode.extensions.getExtension('vscode.git').exports;
 const { WebClient, LogLevel } = require("@slack/web-api");
+const { performance } = require('perf_hooks');
 var WebSocketClient = require('websocket').client;
 /**
  * @param {vscode.ExtensionContext} context
@@ -33,6 +34,11 @@ let repoCreated = false;
 let gitRepo = null;
 let userName = null;
 let rootPath = null;
+//statusBar
+let statusBarItem = null;
+
+//timers
+let currenTime = performance.now();
 
 const comandCenter = {
 	"sendMessage": data => slack_sendMessage(data.message , data.channel , data.thread),
@@ -113,6 +119,18 @@ async function activate(context) {
 
 	context.subscriptions.push(vscode.commands.registerCommand(
 	'black-box.refreshLiveDoc', async () => await OpenAIDescribe()));
+
+	statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+	statusBarItem.command = 'black-box.openLiveDoc';
+	context.subscriptions.push(statusBarItem);
+	statusBarItem.text = `$(symbol-function) BlackBox`;
+	statusBarItem.show();
+
+	context.subscriptions.push(vscode.window.onDidChangeTextEditorSelection(textSelected));
+}
+
+async function textSelected(){
+	// await OpenAIDescribe();
 }
 
 async function getRepoDetails(){
@@ -182,28 +200,15 @@ async function OpenAIDescribe(){
 	if(selection){
 		selectedContent = currOpenEditor?.document?.getText(selection);
 	}
-	if(content && selectedContent.trim() !== ""){
-		vscode.window.withProgress(
-				{
-				  location: vscode.ProgressLocation.Notification,
-				  title: 'OpenAI ',
-				  cancellable: false,
-				},
-				async (progress, token) => {
-					await progress.report({ message: ' Processing' });
-					const descritption = await describeCode(selectedContent);
-					const text = descritption?.choices[0]?.text;
-					postDataToExtension({command:'OpenAI', content:text});
-					await progress.report({ message: ' Complete' });
-					await new Promise(resolve => setTimeout(resolve, 1000));
-					if(!currentPanel){
-						await progress.report({ message: ' CTRL + M => To Open Black-Box' });
-						await new Promise(resolve => setTimeout(resolve, 2000));
-					}
-			   }
-			  )
-			
-		
+	if(content && (selectedContent.trim() !== "") && (currenTime+1000 < performance.now())){
+		currenTime = performance.now();
+		statusBarItem.text = `$(loading~spin) OpenAI`;
+		statusBarItem.show();
+		const descritption = await describeCode(selectedContent);
+		const text = descritption?.choices[0]?.text;
+		postDataToExtension({command:'OpenAI', content:text});
+		statusBarItem.text = `$(symbol-function) BlackBox`;
+		statusBarItem.show();
 	} else {
 		vscode.window.showErrorMessage("OpenAI : please select a code segment and press ALT + M");
 	}
