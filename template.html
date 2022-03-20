@@ -7,7 +7,6 @@
       <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
       <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
       <script src="https://cdnjs.cloudflare.com/ajax/libs/split.js/1.6.2/split.min.js"></script>
-
       <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 
 <style>
@@ -354,6 +353,19 @@
             font-weight: bold;
             text-shadow: 0px -1px 3px red;
         }
+        .stackOverflowItem{
+            
+            max-width: calc(100vw - 45px);
+            overflow-y: auto;
+            max-height: 120px;
+            border: #949494 solid 3px;
+            margin-bottom: 5px;
+            margin-top: 5px;
+            background: #282828;
+            border-radius: 4px;
+            padding: 3px;
+
+        }
 
 </style>
   </head>
@@ -367,13 +379,13 @@
                 </div> 
                 <div class="techDetails">
                     <div id="channelName">
-                        slack : need git repo (refresh => CTRL + M)
+                        slack : need git repo (refresh => CTRL + m)
                     </div>
                 </div>
             </div>
             <div class="help-commands">
                 <div id="settings" onclick="openSettings()">Settings &nbsp;</div>
-                <div>OpenAI &nbsp;&nbsp;:&nbsp; Alt + M &nbsp;</div> 
+                <div>OpenAI &nbsp;&nbsp;:&nbsp; Alt + m &nbsp;</div> 
             </div>
            
            </div>
@@ -389,6 +401,9 @@
                         </div> |
                         <div id="OpenAI" onclick="getOpenAI()">
                             AI description
+                        </div> |
+                        <div id="StackOverflow" onclick="getStackOverflow()">
+                            StackOverflow
                         </div>
                     </div>
                 </div>
@@ -397,7 +412,10 @@
                     <br> Add #help tag for help message.
                 </div>
                 <div class="infoContent" id="tab_AI">
-                    Select code snippet + ALT + M
+                    Select code snippet + ALT + m
+                </div>
+                <div class="infoContent" id="tab_StackOverflow">
+                    Select text + ALT + p
                 </div>
             </div>
             <div id="docBox" class="doc">
@@ -440,6 +458,7 @@
         let tag_best = false;
         let tag_doc = false;
         let help = true;
+        let StackOverflow = false;
         let OpenAI = false;
         let quill = null;
         let currentThread = null;
@@ -453,6 +472,7 @@
             message: data => loadThread(data.message),
             OpenAI: data => getOpenAI(data.content),
             help: data => loadHelpItems(data.files),
+            StackOverflow: data => getStackOverflow(data.content),
         }
         try{
             vscode = acquireVsCodeApi();
@@ -468,10 +488,13 @@
     function getHelpItems(){
         $('#OpenAI').removeClass('active');
         $('#helpMenu').addClass('active');
+        $('#StackOverflow').removeClass('active');
         $('#tab_help').show();
         $('#tab_AI').hide();
+        $('#tab_StackOverflow').hide();
         help = true;
         OpenAI = false;
+        StackOverflow = false;
 
     }
 
@@ -513,13 +536,48 @@
         }
        
     }
+
+    function getStackOverflow(data=null){
+        $('#helpMenu').removeClass('active');
+        $('#StackOverflow').addClass('active');
+        $('#OpenAI').removeClass('active');
+        $('#tab_AI').hide();
+        $('#tab_StackOverflow').show();
+        $('#tab_help').hide();
+        help = false;
+        OpenAI = false;
+        StackOverflow = true;
+        if(data){
+            //replace \n with <br>
+         $('#tab_StackOverflow').html('');
+         if(data.items.length){
+            data.items.forEach(x => {
+                $('#tab_StackOverflow').append(`<div class="stackOverflowItem">
+                    <div class="stackOverflowItemTitle">
+                        <a href="${x.link}" target="_blank">${x.title}</a>
+                    </div>
+                    <div class="stackOverflowItemBody">
+                        ${x.body}
+                    </div>
+                </div>`);
+           });
+         } else {
+            $('#tab_StackOverflow').html('No results found.');
+         }
+          
+        }
+    }
+
     function getOpenAI(text=null){
         $('#helpMenu').removeClass('active');
+        $('#StackOverflow').removeClass('active');
         $('#OpenAI').addClass('active');
         $('#tab_AI').show();
         $('#tab_help').hide();
+        $('#tab_StackOverflow').hide();
         help = false;
         OpenAI = true;
+        StackOverflow = false;
         if(text){
             //replace \n with <br>
             text = text.replace(/\n/g, "<br>");
@@ -554,7 +612,11 @@
         }
     }
 
-    function initScreen(){
+    function fetchStackOveflow(){
+        
+    }
+
+   async function initScreen(){
 
         let toolbarOptions = [['bold', 'italic', 'strike','code-block']];  
 	    quill = new Quill('#editor', {

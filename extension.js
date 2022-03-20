@@ -1,5 +1,6 @@
 const vscode = require('vscode');
 const fetch = require('node-fetch');
+const https = require('https');
 const env = require('./apiKeys');
 const path = require('path');
 const fs = require('fs');
@@ -118,7 +119,10 @@ async function activate(context) {
 	'black-box.openLiveDoc', async () => await beginLiveDocs(context)));
 
 	context.subscriptions.push(vscode.commands.registerCommand(
-	'black-box.refreshLiveDoc', async () => await OpenAIDescribe()));
+	'black-box.openAIdescribe', async () => await OpenAIDescribe()));
+
+	context.subscriptions.push(vscode.commands.registerCommand(
+	'black-box.openStackoverflow', async () => await getStackOverflowResults()));
 
 	statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
 	statusBarItem.command = 'black-box.openLiveDoc';
@@ -214,6 +218,23 @@ async function OpenAIDescribe(){
 	}
 }
 
+async function getStackOverflowResults(){
+	process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+	let currOpenEditor = vscode.window.activeTextEditor;
+	const content  = currOpenEditor?.document?.getText();
+	const selection = currOpenEditor?.selection;
+	let selectedContent = null;
+	if(selection){
+		selectedContent = currOpenEditor?.document?.getText(selection);
+	}
+	if(content && (selectedContent.trim() !== "")){
+		const data = await(await fetch(
+			`https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=activity&q=
+			${selectedContent}&site=stackoverflow&filter=withbody`	)).json();
+		postDataToExtension({command:'StackOverflow', content:data});
+	}
+}
+
 async function updateLiveDoc(filePath = null){
 	if(!updateLiveDocInProgress){
 		updateLiveDocInProgress = true;
@@ -301,7 +322,6 @@ function getWebviewContent(context) {
 
 
 async function describeCode(code){
-	process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 	const engine = 'davinci-codex';
 	const url = `https://api.openai.com/v1/engines/${engine}/completions`;
 	code = `

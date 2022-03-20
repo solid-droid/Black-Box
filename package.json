@@ -3,7 +3,7 @@
   "displayName": "Black Box",
   "description": "Real-time development logger and problem solver",
   "publisher": "nikhilmjeby",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "icon": "logo_128x128.png",
   "engines": {
     "vscode": "^1.63.0"
@@ -14,7 +14,8 @@
   "activationEvents": [
     "onStartupFinished",
     "onCommand:black-box.openLiveDoc",
-    "onCommand:black-box.refreshLiveDoc"
+    "onCommand:black-box.openAIdescribe",
+    "onCommand:black-box.openStackoverflow"
   ],
   "main": "./extension.js",
   "extensionDependencies": [
@@ -35,9 +36,14 @@
         "mac": "cmd+m"
       },
       {
-        "command": "black-box.refreshLiveDoc",
+        "command": "black-box.openAIdescribe",
         "key": "alt+m",
         "mac": "alt+m"
+      },
+      {
+        "command": "black-box.openStackoverflow",
+        "key": "alt+p",
+        "mac": "alt+p"
       }
     ],
     "configuration": {
