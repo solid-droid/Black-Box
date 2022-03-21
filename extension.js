@@ -1,6 +1,5 @@
 const vscode = require('vscode');
 const fetch = require('node-fetch');
-const https = require('https');
 const env = require('./apiKeys');
 const path = require('path');
 const fs = require('fs');
@@ -37,6 +36,7 @@ let userName = null;
 let rootPath = null;
 //statusBar
 let statusBarItem = null;
+let showOnce = false;
 
 //timers
 let currenTime = performance.now();
@@ -100,23 +100,24 @@ async function activate(context) {
 
 	let previousFile = null;
 	vscode.workspace.onDidOpenTextDocument(async (file) => {
-		if(!gitRepo && START_AUTO){
-			await beginLiveDocs(context)
-		}
-		if(file.fileName && START_AUTO){
+		if(file.fileName){
 			let fileName = file.fileName;
-			if(file.fileName.substring(file.fileName.length - 4) === '.git') {
-				//remove last 4 characters
+			if(fileName.substring(file.fileName.length - 4) === '.git') {
 				fileName = file.fileName.substring(0, file.fileName.length - 4);
 			}
 			if(previousFile !== fileName){
 				previousFile = fileName;
-				updateLiveDoc(fileName);
+				await loadWebView(context);
 			}
 		}
+
 	})
 	context.subscriptions.push(vscode.commands.registerCommand(
-	'black-box.openLiveDoc', async () => await beginLiveDocs(context)));
+	'black-box.openLiveDoc', async () => {
+		showOnce = false;
+		START_AUTO = true;
+		await loadWebView(context);
+	}));
 
 	context.subscriptions.push(vscode.commands.registerCommand(
 	'black-box.openAIdescribe', async () => await OpenAIDescribe()));
@@ -131,6 +132,15 @@ async function activate(context) {
 	statusBarItem.show();
 
 	context.subscriptions.push(vscode.window.onDidChangeTextEditorSelection(textSelected));
+}
+
+async function loadWebView(context) {
+	if(START_AUTO && !showOnce){
+		await beginLiveDocs(context);
+	}
+	if(START_AUTO ){
+		updateLiveDoc();
+	}
 }
 
 async function textSelected(){
@@ -172,13 +182,13 @@ async function createHelpThread(force = false){
 		  cancellable: false,
 		},
 		async (progress, token) => {
-			await progress.report({ message: 'updating help thread' });
+			await progress.report({ message: 'updating threads' });
 			threadName = 'Active Help';
 			const thread = await findThread(threadName);
 			if(thread){
 				const threadMessages = await getThreadMessages(thread.ts, threadName, force);
 				await updateHelpContent(threadMessages);
-				await progress.report({ message: 'help thread updated' });
+				await progress.report({ message: 'threads updated' });
 				await new Promise(resolve => setTimeout(resolve, 1500));
 			}
 		});
@@ -218,6 +228,7 @@ async function OpenAIDescribe(){
 	}
 }
 
+
 async function getStackOverflowResults(){
 	process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 	let currOpenEditor = vscode.window.activeTextEditor;
@@ -235,37 +246,26 @@ async function getStackOverflowResults(){
 	}
 }
 
-async function updateLiveDoc(filePath = null){
+async function updateLiveDoc(){
 	if(!updateLiveDocInProgress){
 		updateLiveDocInProgress = true;
-		await new Promise(resolve => setTimeout(resolve, 100));
-		await vscode.window.withProgress(
-			{
-			location: vscode.ProgressLocation.Notification,
-			title: 'Black Box ',
-			cancellable: false,
-			},
-			async (progress, token) => {
-				await progress.report({ message: ' Loading Thread' });
-				let currOpenEditor = vscode.window.activeTextEditor;
-				if(!filePath){
+		let currOpenEditor = vscode.window.activeTextEditor;
+		await new Promise(resolve => setTimeout(resolve, 200));
+		if(currOpenEditor){
 					filePath = currOpenEditor?.document?.fileName;
 				}
 				rootPath = filePath?.split(gitRepo.name)[0];
-				await loadThread(filePath);
-				await createHelpThread();
-				if(repoCreated){
-					await progress.report({ message: ' Thread Loading complete' });
-					postDataToExtension({
-						command:'channel', 
-						channel: `#${gitRepo.channel}`,
-					});
-				} else {
-					await progress.report({ message: ' Black box requires slack channel' });
+				const allow = await loadThread(filePath);
+				if(allow){
+					await createHelpThread();
+					if(repoCreated){
+						postDataToExtension({
+							command:'channel', 
+							channel: `#${gitRepo.channel}`,
+						});
+					}
 				}
 				updateLiveDocInProgress = false;
-				await new Promise(resolve => setTimeout(resolve, 1500));
-			});
 		}
 }
 async function postDataToExtension(message){
@@ -309,9 +309,7 @@ async function beginLiveDocs(context){
 		context.subscriptions
 	  );
 	}
-	const currOpenEditor = vscode.window.activeTextEditor;
-	const filePath = currOpenEditor?.document?.fileName;
-	updateLiveDoc(filePath);
+	updateLiveDoc();
 }
 
 
@@ -512,9 +510,13 @@ async function loadThread(filePath , filterTags = lastFilter){
 				currentThread['threadID'] = thread.ts;
 				const threadMessages = await getThreadMessages(thread.ts, threadName);
 				updateThreadMsgOnScreen(threadMessages , thread.ts , filterTags);
+				return true;
 			}
 		}
+	} else {
+		vscode.window.showErrorMessage("No File selected. Please select a file and press CTRL + m");
 	}
+	return false;
 }
 
 async function updateThreadMsgOnScreen(threadMessages , ts , filterTags = lastFilter){
@@ -565,7 +567,8 @@ function preProcessIncommingMessage(item){
 
 async function getChannelID(channel){
 	let channelRepo = await findChannel(channel);
-	if(!channelRepo){
+	if(!channelRepo && !showOnce){
+		showOnce = true;
 		if(!channelCreationInProgress){
 			channelCreationInProgress = true;
 			await createChannelRepo(channel);
