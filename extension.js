@@ -100,17 +100,18 @@ async function activate(context) {
 
 	let previousFile = null;
 	vscode.workspace.onDidOpenTextDocument(async (file) => {
-		if(file.fileName){
-			let fileName = file.fileName;
-			if(fileName.substring(file.fileName.length - 4) === '.git') {
-				fileName = file.fileName.substring(0, file.fileName.length - 4);
-			}
-			if(previousFile !== fileName){
-				previousFile = fileName;
-				await loadWebView(context);
+		if (currentPanel) {
+			if(file.fileName){
+				let fileName = file.fileName;
+				if(fileName.substring(file.fileName.length - 4) === '.git') {
+					fileName = file.fileName.substring(0, file.fileName.length - 4);
+				}
+				if(previousFile !== fileName){
+					previousFile = fileName;
+					await loadWebView(context);
+				}
 			}
 		}
-
 	})
 	context.subscriptions.push(vscode.commands.registerCommand(
 	'black-box.openLiveDoc', async () => {
