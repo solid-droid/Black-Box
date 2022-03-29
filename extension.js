@@ -133,6 +133,11 @@ async function activate(context) {
 	statusBarItem.show();
 
 	context.subscriptions.push(vscode.window.onDidChangeTextEditorSelection(textSelected));
+
+	if(START_AUTO){
+		showOnce = false;
+		await beginLiveDocs(context);
+	}
 }
 
 async function loadWebView(context) {
