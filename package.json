@@ -3,7 +3,7 @@
   "displayName": "Black Box",
   "description": "Real-time development logger and problem solver",
   "publisher": "nikhilmjeby",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "icon": "logo_128x128.png",
   "engines": {
     "vscode": "^1.63.0"

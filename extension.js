@@ -501,7 +501,7 @@ async function loadThread(filePath , filterTags = lastFilter){
 	if(filePath){
 		await new Promise(resolve => setTimeout(resolve, 100));
 		lastFilter = filterTags;
-		const fileName = filePath.split(gitRepo.name)[1];
+		const fileName = filePath.split(new RegExp(gitRepo.name, 'i'))[1];
 		if(fileName && gitRepo){
 			const threadName = gitRepo.name+ fileName;
 			const displayName = '...\\'+threadName.split('\\')[threadName.split('\\').length-1];
@@ -573,6 +573,7 @@ function preProcessIncommingMessage(item){
 
 async function getChannelID(channel){
 	let channelRepo = await findChannel(channel);
+	console.log(channelRepo , showOnce);
 	if(!channelRepo && !showOnce){
 		showOnce = true;
 		if(!channelCreationInProgress){
