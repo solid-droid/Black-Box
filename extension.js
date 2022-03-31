@@ -326,6 +326,7 @@ function getWebviewContent(context) {
 
 
 async function describeCode(code){
+	process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 	const engine = 'davinci-codex';
 	const url = `https://api.openai.com/v1/engines/${engine}/completions`;
 	code = `
