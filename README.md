@@ -22,5 +22,10 @@ ______
 - Stackoverflow - text fuzzy search
 > Select text + ALT + p
 
+____
+for default api keys:  
+create a file called "apiKeys.js" in root.  
+![image](https://user-images.githubusercontent.com/32586986/161221093-b770902c-33cc-453f-be84-0d72cb10b400.png)
+
 
 
